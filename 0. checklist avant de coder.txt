@@ -32,7 +32,7 @@ L'ordre idéal :
 8. Définir la stratégie IA/coût       ✅ Fichiers 11 + 12
 9. Préparer le repo + Docker + CI     ✅ Fichiers 13 + 14 + 15 + 21
 10. Créer le dataset de démo          ✅ Fichier 17 (DemoShop complet)
-11. Commencer le développement        → PRÊT
+11. Commencer le développement        → SPRINT 0 COMPLÉTÉ ✓
 
 
 Résumé de l'enrichissement effectué (juin 2026) :
