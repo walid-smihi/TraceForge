@@ -73,6 +73,7 @@ export interface TraceLink {
 
 export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled"
 export type JobType =
+  | "extract_document"
   | "extract_requirements"
   | "scan_repository"
   | "suggest_links"
@@ -84,6 +85,8 @@ export interface AnalysisJob {
   job_type: JobType
   status: JobStatus
   progress: number
+  input_data: Record<string, string> | null
+  result_data: Record<string, unknown> | null
   error_message: string | null
   created_at: string
   started_at: string | null
