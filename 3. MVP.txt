@@ -1,0 +1,114 @@
+# MVP — TraceForge
+
+---
+
+## Objectif du MVP
+
+Avoir une app locale fonctionnelle qui prouve la valeur de la traçabilité exigences→code→tests, utilisable pour une vraie démo et un vrai projet perso.
+
+Pas de SaaS. Pas de multi-user. Pas de paiement. Juste le cœur du produit.
+
+---
+
+## Fonctionnalités MVP (V1 + V2)
+
+### 1. Créer un projet
+
+- L'utilisateur crée un projet avec un nom, une description et un domaine métier (ex : e-commerce, fintech, santé)
+- L'app crée un espace de travail isolé pour chaque projet
+- L'utilisateur peut supprimer un projet (avec confirmation)
+
+### 2. Uploader un document de spécifications
+
+- Formats acceptés : .pdf (texte), .md, .txt, .docx
+- Taille maximum : 50 MB
+- L'app extrait le texte brut du document
+- L'app découpe le texte en sections (DocumentChunks)
+- L'app lance automatiquement l'extraction des exigences après l'upload
+- L'utilisateur voit la progression du traitement (job asynchrone)
+
+### 3. Extraire les exigences
+
+- Le système analyse le texte du document via LLM (Ollama par défaut)
+- Il identifie et extrait chaque exigence
+- Il attribue automatiquement un identifiant unique (REQ-001, REQ-002...)
+- Il classifie chaque exigence : fonctionnelle / sécurité / performance / disponibilité / conformité / interface
+- Il détecte les exigences ambiguës (sans métrique mesurable)
+- L'utilisateur peut corriger, modifier ou supprimer une exigence extraite
+- L'utilisateur peut créer une exigence manuellement
+
+### 4. Importer un dépôt de code
+
+- Import local : chemin absolu vers un dossier ou upload d'un .zip
+- Import GitHub : URL publique (clone en lecture seule)
+- L'app scanne les fichiers : .py, .ts, .js, .java, .go, .md, et fichiers de tests
+- Exclusions automatiques : node_modules, .git, __pycache__, dist, build, .env
+- L'app génère un résumé de chaque fichier (LLM) : rôle, entités, constantes détectées
+
+### 5. Scanner les fichiers de code et tests
+
+- Chaque fichier est analysé et résumé
+- L'app détecte automatiquement les fichiers de test (*.test.ts, *.spec.py, test_*.py, etc.)
+- L'app génère des embeddings vectoriels pour chaque fichier résumé
+- L'utilisateur peut voir la liste des fichiers avec leur résumé et leur langage
+
+### 6. Suggérer des liens exigence → fichier/test
+
+- L'app calcule la similarité cosinus entre les embeddings des exigences et des fichiers
+- Elle propose les paires avec un score de confiance (0 à 100%)
+- Les paires avec score > 70% sont suggérées en priorité
+- L'utilisateur peut : valider, rejeter ou modifier chaque suggestion
+- L'utilisateur peut créer un lien manuel (score = 100%, statut = validé)
+- Un lien validé peut être remis en "à revoir" si l'exigence est modifiée
+
+### 7. Afficher un graphe de traçabilité
+
+- Visualisation interactive avec React Flow
+- Nœuds : exigences (bleu), fichiers source (vert), tests (orange), tickets (violet)
+- Arêtes : liens validés (trait plein), liens suggérés (trait pointillé)
+- Filtres : type de nœud, statut de lien, "exigences sans test", "fichiers sans exigence"
+- Click sur un nœud → panneau détail latéral
+- Export PNG du graphe
+
+### 8. Détecter les incohérences simples
+
+- Exigences ambiguës : mots sans métrique ("rapide", "robuste", "simple", "performant")
+- Conflits de timeouts : deux exigences avec des durées numériques dans le même domaine métier
+- Exigences critiques sans test associé
+- Exigences modifiées sans relancer l'analyse des liens
+
+### 9. Générer un rapport d'impact
+
+- L'utilisateur sélectionne une exigence et saisit une modification (ou change son contenu)
+- L'app identifie tous les fichiers et tests liés (directement et à distance ≤ 2 dans le graphe)
+- L'app génère un rapport lisible en Markdown
+- Export du rapport en Markdown ou PDF
+- Le rapport indique : exigence modifiée, nature du changement, fichiers impactés, tests à rejouer, conflits potentiels
+
+---
+
+## Hors MVP (explicitement)
+
+- Paiement Stripe
+- SaaS multi-tenant
+- SSO / OAuth
+- Multi-utilisateur
+- API Jira/Confluence complète
+- Kubernetes
+- DOORS
+- Audit légal
+- Collaboration temps réel
+- Chatbot généraliste
+- Import GitHub privé (tokens OAuth)
+- Analyse des commits Git
+- Authentification utilisateur (V1 = localhost uniquement)
+
+---
+
+## Contraintes du MVP
+
+- L'app doit tourner entièrement en local avec Docker Compose
+- L'app doit fonctionner sans clé API externe (Ollama par défaut)
+- L'app doit inclure un dataset de démo préchargé (projet DemoShop)
+- Temps de réponse UI : < 300ms pour les actions synchrones
+- Analyse asynchrone : progress bar visible, pas de timeout UI

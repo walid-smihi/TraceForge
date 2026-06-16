@@ -1,0 +1,197 @@
+# CI/CD — TraceForge
+
+Pipeline CI sur GitHub Actions. Déploiement manuel sur VPS via Docker Compose.
+
+---
+
+## Workflow CI (.github/workflows/ci.yml)
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+
+  frontend:
+    name: Frontend (lint + typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
+      - name: Test
+        run: npm test -- --run
+
+  backend:
+    name: Backend (lint + tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: traceforge_test
+          POSTGRES_USER: traceforge
+          POSTGRES_PASSWORD: testpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: apps/api/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff check)
+        run: ruff check .
+
+      - name: Format check (ruff format)
+        run: ruff format --check .
+
+      - name: Run migrations
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://traceforge:testpassword@localhost:5432/traceforge_test
+
+      - name: Run tests
+        run: pytest --cov=app --cov-report=xml --cov-fail-under=70
+        env:
+          DATABASE_URL: postgresql+asyncpg://traceforge:testpassword@localhost:5432/traceforge_test
+          REDIS_URL: redis://localhost:6379/0
+          LLM_PROVIDER: mock
+          STORAGE_PATH: /tmp/traceforge-test-storage
+          APP_ENV: test
+```
+
+---
+
+## Workflow de déploiement (.github/workflows/deploy.yml)
+
+Déclenchement manuel uniquement (workflow_dispatch) ou sur push vers main.
+
+```yaml
+name: Deploy to VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/traceforge
+            git pull origin main
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d --build
+            docker-compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
+            docker system prune -f
+```
+
+Secrets GitHub à configurer :
+- VPS_HOST : IP ou domaine du VPS
+- VPS_USER : utilisateur SSH (ex : ubuntu)
+- VPS_SSH_KEY : clé SSH privée
+
+---
+
+## Résumé des checks par événement
+
+Pull Request vers dev ou main :
+- lint frontend (ESLint)
+- type-check frontend (tsc)
+- build frontend
+- tests frontend (Vitest)
+- lint backend (ruff)
+- format check backend
+- migrations
+- tests backend avec coverage ≥ 70%
+
+Push vers main :
+- tout le CI ci-dessus
+- si tag v* → déploiement sur VPS (optionnel)
+
+---
+
+## Badges README
+
+```markdown
+![CI](https://github.com/{username}/traceforge/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://codecov.io/gh/{username}/traceforge/branch/main/graph/badge.svg)
+```
+
+---
+
+## Évolutions futures
+
+Sprint 7+ :
+- Tests E2E Playwright dans la CI (sur staging)
+- Build Docker images et push vers GitHub Container Registry
+- Deploy automatique sur staging à chaque merge dans dev
+- Deploy prod uniquement sur tag vX.Y.Z

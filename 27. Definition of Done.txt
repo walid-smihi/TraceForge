@@ -1,0 +1,92 @@
+# Definition of Done — TraceForge
+
+Une fonctionnalité est considérée terminée quand TOUS les critères suivants sont remplis.
+
+---
+
+## Critères généraux (toutes les features)
+
+### Code
+- [ ] Le code est mergé dans la branche dev
+- [ ] Pas de console.log / print de debug oubliés
+- [ ] Pas de code commenté inutile
+- [ ] Pas de TODO oubliés sans ticket associé
+- [ ] Les types TypeScript / Python sont corrects (pas de any implicite, pas d'Untyped)
+
+### Tests
+- [ ] Les tests unitaires passent (pytest / Vitest)
+- [ ] Les tests API passent (pytest + httpx)
+- [ ] La couverture globale ne régresse pas (objectif : > 70% backend)
+- [ ] Le cas nominal est testé
+- [ ] Au moins un cas d'erreur est testé (fichier invalide, ressource manquante, etc.)
+
+### CI
+- [ ] Le pipeline CI passe sur la PR (lint + typecheck + build + tests)
+- [ ] Aucun warning de lint non justifié
+
+### UI
+- [ ] L'état de chargement est géré (spinner / skeleton)
+- [ ] L'état d'erreur est géré (toast d'erreur ou message inline)
+- [ ] L'état vide est géré (empty state avec message et action suggérée)
+- [ ] La feature est responsive (au moins 1280px et 768px)
+
+### Sécurité
+- [ ] Aucune clé secrète dans le code versionné
+- [ ] Le .env.example est mis à jour si une nouvelle variable est ajoutée
+- [ ] Les inputs utilisateur sont validés côté backend (Pydantic)
+- [ ] Les fichiers uploadés sont validés (extension + MIME type + taille)
+
+### Docker
+- [ ] La feature fonctionne avec docker-compose up (pas seulement en dev local)
+- [ ] Les nouvelles variables d'environnement sont dans .env.example
+
+### Documentation
+- [ ] Le README est mis à jour si le setup change
+- [ ] Les nouveaux endpoints API sont visibles dans Swagger (/docs)
+- [ ] Un ADR est créé si une décision architecturale importante a été prise
+
+---
+
+## Critères spécifiques par type de feature
+
+### Feature IA / LLM
+- [ ] La feature fonctionne avec MockProvider (pas seulement Ollama)
+- [ ] L'appel LLM est loggé dans la table llm_usage
+- [ ] En cas d'échec LLM : le job échoue proprement avec error_message visible
+- [ ] Les prompts sont dans prompts.py (pas inline dans le service)
+
+### Feature asynchrone (job)
+- [ ] La progression est mise à jour régulièrement (min toutes les 25%)
+- [ ] Le job est annulable (ou au moins que l'UI le signale comme échoué après timeout)
+- [ ] En cas d'échec : l'utilisateur peut relancer le job
+
+### Feature upload
+- [ ] L'extension + le MIME type sont validés côté backend
+- [ ] La taille max est enforced
+- [ ] Le fichier est stocké hors du dossier public
+- [ ] La suppression du projet supprime le fichier physique
+
+### Feature export
+- [ ] Le fichier généré est lisible et propre
+- [ ] Le téléchargement fonctionne dans l'UI (Content-Disposition header)
+
+---
+
+## Definition of Done du Sprint (fin de sprint)
+
+En plus des critères individuels :
+- [ ] Les features du sprint sont intégrées et testées ensemble dans Docker
+- [ ] Le dataset DemoShop fonctionne toujours (démo non cassée)
+- [ ] La PR sprint est mergée dans dev
+- [ ] Les métriques de couverture sont publiées
+- [ ] Le CHANGELOG.md est mis à jour (ou les commits Conventional Commits suffisent)
+- [ ] La démo du sprint a été faite (même solo)
+
+---
+
+## Ce qui N'est PAS dans le DoD
+
+- Performances optimales (on optimise plus tard)
+- Tests E2E Playwright (prévu Sprint 7)
+- Documentation utilisateur complète (prévu Sprint 7)
+- Mobile responsive (optionnel pour V1)

@@ -1,0 +1,239 @@
+# Stratégie IA — TraceForge
+
+---
+
+## Principe général
+
+L'IA est utilisée pour augmenter la productivité, pas pour remplacer le jugement humain.
+Toutes les suggestions IA peuvent être corrigées, validées ou rejetées par l'utilisateur.
+L'app doit fonctionner en mode "offline" avec Ollama sans aucune clé API externe.
+
+---
+
+## Quand l'IA est utilisée
+
+| Opération | Description |
+|---|---|
+| extract_requirements | Extraire les exigences depuis le texte d'un document |
+| classify_requirement | Classer une exigence (type, détection d'ambiguïté) |
+| summarize_file | Générer un résumé du rôle d'un fichier de code |
+| generate_embeddings | Calculer les embeddings vectoriels pour la recherche sémantique |
+| suggest_links | Proposer des liens exigence→fichier avec score de confiance |
+| detect_conflicts | Analyser des paires d'exigences pour détecter des conflits |
+| generate_impact_explanation | Expliquer en langage naturel l'impact d'une modification |
+| generate_impact_report | Générer le rapport d'impact complet en Markdown |
+
+---
+
+## Quand l'IA n'est PAS utilisée
+
+- Calculs de similarité cosinus (c'est du calcul vectoriel, pas du LLM)
+- Application des règles métier (RULE-001 à RULE-015)
+- Validation des formulaires
+- Gestion des statuts et workflows
+- Calcul des métriques de couverture
+- Requêtes SQL sur la base de données
+
+---
+
+## Providers
+
+### Interface commune (base.py)
+
+```python
+class LLMProvider(ABC):
+    @abstractmethod
+    async def complete(self, prompt: str, system: str = "") -> str: ...
+
+    @abstractmethod
+    async def embed(self, text: str) -> list[float]: ...
+
+    @abstractmethod
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]: ...
+```
+
+### MockProvider (développement et tests)
+
+- Retourne des réponses fictives JSON prédéfinis
+- Zéro latence, zéro coût
+- Utilisé dans les tests automatisés
+- Provider par défaut quand LLM_PROVIDER=mock
+
+### OllamaProvider (production locale)
+
+- Modèle texte : llama3.1:8b (par défaut)
+- Modèle embeddings : nomic-embed-text (dim=768)
+- URL configurable : OLLAMA_BASE_URL
+- Timeout : 60s pour les completions, 30s pour les embeddings
+- Retry : 3 tentatives avec backoff exponentiel
+
+### OpenAIProvider (optionnel cloud)
+
+- Modèle texte : gpt-4o-mini (par défaut, équilibre coût/qualité)
+- Modèle embeddings : text-embedding-3-small (dim=1536)
+- Clé API : OPENAI_API_KEY (jamais loggée, jamais affichée)
+
+### MistralProvider (optionnel cloud)
+
+- Modèle texte : mistral-small-latest
+- Modèle embeddings : mistral-embed
+- Clé API : MISTRAL_API_KEY
+
+---
+
+## Templates de prompts (prompts.py)
+
+### EXTRACT_REQUIREMENTS_PROMPT
+
+```
+System:
+Tu es un expert en ingénierie des exigences logicielles.
+Tu analyses des documents de spécification et extrais les exigences.
+Réponds uniquement en JSON valide, sans commentaire.
+
+User:
+Analyse le texte suivant et extrais toutes les exigences.
+Pour chaque exigence, fournis :
+- title : titre court de l'exigence (max 100 chars)
+- description : description complète
+- type : "functional" | "security" | "performance" | "availability" | "compliance" | "interface"
+- is_ambiguous : true si l'exigence manque d'une métrique mesurable
+- ambiguity_reason : explication si is_ambiguous=true
+
+Texte :
+{document_text}
+
+Réponds avec ce format JSON :
+{"requirements": [{"title": "...", "description": "...", "type": "...", "is_ambiguous": false}]}
+```
+
+### SUMMARIZE_FILE_PROMPT
+
+```
+System:
+Tu es un expert en analyse de code. Tu génères des résumés concis et précis.
+Réponds uniquement en JSON valide.
+
+User:
+Analyse ce fichier de code et génère un résumé structuré.
+
+Fichier : {file_path}
+Langage : {language}
+
+```{language}
+{file_content}
+```
+
+Fournis :
+- role : rôle principal du fichier (1 phrase)
+- entities : liste des entités métier manipulées (ex : ["article", "stock", "checkout"])
+- constants : dictionnaire des constantes numériques importantes (ex : {"TIMEOUT_MINUTES": 15})
+- is_test_file : true si c'est un fichier de test
+
+Format :
+{"role": "...", "entities": [...], "constants": {...}, "is_test_file": false}
+```
+
+### SUGGEST_LINKS_PROMPT
+
+```
+System:
+Tu es un expert en traçabilité logicielle. Tu évalues si un fichier de code
+implémente ou teste une exigence donnée.
+
+User:
+Évalue la probabilité que ce fichier de code soit lié à cette exigence.
+
+Exigence :
+- ID : {req_code}
+- Titre : {req_title}
+- Description : {req_description}
+
+Fichier :
+- Chemin : {file_path}
+- Rôle : {file_role}
+- Entités : {file_entities}
+
+Score de similarité vectorielle pré-calculé : {vector_score}%
+
+Donne :
+- confidence : score de confiance final entre 0 et 100
+- link_type : "implements" | "tests" | "related_to"
+- justification : 1-2 phrases d'explication
+
+Format :
+{"confidence": 85, "link_type": "implements", "justification": "..."}
+```
+
+### GENERATE_IMPACT_REPORT_PROMPT
+
+```
+System:
+Tu es un expert en analyse d'impact logiciel. Tu génères des rapports clairs et actionnables.
+
+User:
+Génère un rapport d'impact en Markdown pour la modification suivante.
+
+Exigence modifiée :
+- Code : {req_code}
+- Ancien titre : {old_title}
+- Nouveau titre : {new_title}
+- Description : {description}
+
+Fichiers directement impactés :
+{direct_files}
+
+Fichiers indirectement impactés :
+{indirect_files}
+
+Tests à rejouer :
+{tests}
+
+Conflits détectés :
+{conflicts}
+
+Génère un rapport Markdown professionnel avec ces sections :
+1. Résumé de la modification
+2. Risques identifiés
+3. Fichiers concernés
+4. Tests à rejouer
+5. Recommandations
+```
+
+---
+
+## Stratégie d'embeddings
+
+1. Lors de l'upload d'un document : générer embeddings de chaque DocumentChunk
+2. Lors de l'extraction d'exigences : générer embedding pour chaque Requirement
+3. Lors du scan repo : générer embedding du résumé de chaque CodeFile
+4. Lors de la suggestion de liens : query pgvector pour les N fichiers les plus similaires à chaque exigence
+5. Ré-générer les embeddings si le contenu d'un fichier change (content_hash différent)
+
+Batch size : 20 textes par appel embed_batch pour Ollama, 100 pour OpenAI.
+
+---
+
+## Tracking des coûts (LLMUsage)
+
+Chaque appel LLM est loggé dans la table llm_usage avec :
+- provider, model, operation
+- input_tokens, output_tokens
+- duration_ms
+- estimated_cost_usd
+
+Tarifs approximatifs par défaut (mis à jour manuellement) :
+- gpt-4o-mini : $0.15/1M tokens input, $0.60/1M tokens output
+- mistral-small : $0.20/1M tokens input, $0.60/1M tokens output
+- Ollama local : $0 (coût = 0)
+
+API de consultation : GET /api/v1/settings/llm/usage?period=month
+
+---
+
+## Fallback et résilience
+
+1. Si Ollama est indisponible au démarrage → log warning, pas d'erreur critique
+2. Si un appel LLM échoue → retry 3x avec backoff, puis job.status = failed + error_message
+3. Si le JSON retourné est invalide → re-prompt avec instruction de corriger le format (1 retry)
+4. Si embeddings indisponibles → suggestion de liens désactivée, liens manuels toujours possibles

@@ -1,0 +1,207 @@
+# Stratégie de tests — TraceForge
+
+---
+
+## Objectifs de couverture
+
+Backend : > 80% de couverture sur les services et routers
+Frontend : > 60% sur les composants critiques (formulaires, tableau exigences, graphe)
+Pas de test E2E obligatoire avant le Sprint 7
+
+---
+
+## Pyramide des tests
+
+Unitaires (rapides, beaucoup) → Services, parsers, règles métier, LLM providers
+Intégration (moyen, quelques-uns) → Routes FastAPI avec vraie DB de test
+E2E (lents, peu) → Scénario complet (Sprint 7 avec Playwright)
+
+---
+
+## Tests backend (pytest)
+
+### Structure
+
+```
+apps/api/tests/
+  conftest.py              # fixtures globales (DB, client HTTP, mock LLM)
+  test_projects.py         # CRUD projets
+  test_documents.py        # upload, extraction texte
+  test_requirements.py     # extraction, classification, ambiguïté
+  test_trace_links.py      # suggestions, validation, règles métier
+  test_jobs.py             # jobs asynchrones
+  test_impact.py           # analyse d'impact, rapport
+  test_conflict.py         # détection de conflits (RULE-002, etc.)
+  test_export.py           # export Markdown/PDF
+  test_llm/
+    test_mock_provider.py
+    test_ollama_provider.py  # tests avec Ollama réel (skippés en CI)
+    test_prompts.py          # validation des prompts et parsing des réponses
+  fixtures/
+    demoshop/
+      spec_checkout.md
+      expected_requirements.json
+      expected_links.json
+      expected_conflicts.json
+    simple_spec.md
+    empty_document.pdf
+```
+
+### Fixtures importantes (conftest.py)
+
+```python
+@pytest.fixture
+async def db_session():
+    # Base de test en mémoire ou PostgreSQL de test
+    # Rollback automatique après chaque test
+
+@pytest.fixture
+def mock_llm():
+    # LLM qui retourne des réponses prédéfinies
+    # Isolé du vrai Ollama/OpenAI
+
+@pytest.fixture
+async def project(db_session):
+    # Projet de test créé en base
+
+@pytest.fixture
+async def project_with_requirements(db_session, project):
+    # Projet avec 5 exigences préchargées
+```
+
+### Exemples de tests critiques
+
+```python
+# Extraction d'exigences
+async def test_extraction_returns_requirements_from_markdown():
+    # Given: un fichier markdown avec 3 exigences
+    # When: on lance l'extraction avec MockProvider
+    # Then: 3 exigences sont créées avec les bons types
+
+async def test_ambiguity_detection_flags_vague_requirement():
+    # Given: "Le système doit être rapide"
+    # When: on sauvegarde l'exigence
+    # Then: is_ambiguous=True, ambiguity_reason contient "seuil mesurable"
+
+# Règle métier RULE-003
+async def test_validated_links_become_needs_review_on_requirement_update():
+    # Given: un lien validé entre REQ-001 et checkout.service.ts
+    # When: on modifie la description de REQ-001
+    # Then: le lien passe en status="needs_review"
+
+# Détection de conflit RULE-002
+async def test_timeout_conflict_detected():
+    # Given: REQ-STOCK-001 (reservation=4min) et REQ-PAY-002 (3DS max=5min)
+    # When: on lance la détection de conflits
+    # Then: un DetectedConflict est créé avec severity=critical
+
+# Analyse d'impact
+async def test_impact_includes_distance_2_files():
+    # Given: REQ-001 → checkout.service.ts → payment.service.ts
+    # When: on analyse l'impact de REQ-001
+    # Then: les deux fichiers apparaissent dans le rapport
+```
+
+### Commandes
+
+```bash
+pytest                           # tous les tests
+pytest -v                        # verbose
+pytest tests/test_requirements.py  # un fichier
+pytest -k "test_extraction"      # filtre par nom
+pytest --cov=app --cov-report=html  # coverage HTML
+```
+
+---
+
+## Tests frontend (Vitest + Testing Library)
+
+### Structure
+
+```
+apps/web/src/
+  components/
+    requirements/
+      RequirementTable.test.tsx
+      RequirementForm.test.tsx
+    documents/
+      DocumentUpload.test.tsx
+    links/
+      LinkSuggestions.test.tsx
+    jobs/
+      JobProgress.test.tsx
+  lib/
+    api.test.ts
+```
+
+### Exemples de tests critiques
+
+```typescript
+// RequirementTable : filtres fonctionnels
+it('filters requirements by type when filter is applied', () => {
+  render(<RequirementTable requirements={mockRequirements} />)
+  fireEvent.click(screen.getByText('Sécurité'))
+  expect(screen.getAllByRole('row')).toHaveLength(3)  // header + 2 results
+})
+
+// DocumentUpload : erreur de format
+it('shows error when unsupported file format is uploaded', async () => {
+  render(<DocumentUpload projectId="123" />)
+  const file = new File(['content'], 'test.exe', { type: 'application/x-msdownload' })
+  await userEvent.upload(screen.getByLabelText('upload'), file)
+  expect(screen.getByText(/Format non supporté/)).toBeInTheDocument()
+})
+
+// JobProgress : affiche la progression
+it('updates progress bar as job progresses', async () => {
+  const { rerender } = render(<JobProgress jobId="job-1" initialProgress={0} />)
+  rerender(<JobProgress jobId="job-1" initialProgress={65} />)
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '65')
+})
+```
+
+---
+
+## Tests E2E (Playwright — Sprint 7)
+
+```typescript
+// tests/e2e/demo-flow.spec.ts
+test('full demo flow: upload spec + scan repo + view conflict', async ({ page }) => {
+  await page.goto('http://localhost:3000')
+
+  // Créer un projet
+  await page.click('text=Nouveau projet')
+  await page.fill('[name=name]', 'TestProject')
+  await page.click('text=Créer')
+
+  // Uploader un document
+  await page.setInputFiles('input[type=file]', 'tests/fixtures/demoshop/spec_checkout.md')
+  await page.waitForSelector('text=Extraction terminée', { timeout: 60000 })
+
+  // Vérifier les exigences extraites
+  await page.click('text=Exigences')
+  await expect(page.locator('table tbody tr')).toHaveCount(6)
+
+  // Vérifier le conflit détecté
+  await page.click('text=Impact')
+  await expect(page.locator('[data-testid=conflict-alert]')).toBeVisible()
+})
+```
+
+---
+
+## Dataset de test (fixtures)
+
+```
+tests/fixtures/
+  demoshop/
+    spec_checkout.md          # document de spécification DemoShop
+    expected_requirements.json  # 6 exigences attendues après extraction
+    expected_links.json         # liens attendus après suggestion
+    expected_conflicts.json     # 1 conflit timeout attendu
+  edge_cases/
+    empty_document.md
+    single_requirement.txt
+    no_requirements_noise.txt   # texte sans exigence (faux positifs)
+    vague_requirements.md       # exigences toutes ambiguës
+```

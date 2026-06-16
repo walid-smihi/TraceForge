@@ -1,0 +1,190 @@
+# Stratégie d'analyse asynchrone — TraceForge
+
+---
+
+## Pourquoi de l'asynchrone ?
+
+Les tâches suivantes peuvent prendre de 5 secondes à plusieurs minutes :
+- Analyser un PDF de 100 pages
+- Scanner un repo de 500 fichiers
+- Générer les embeddings de tous les fichiers
+- Appeler le LLM pour chaque fichier ou exigence
+
+Ces tâches ne peuvent pas bloquer la requête HTTP (timeout 30s typique).
+Elles sont donc exécutées en tâche de fond via Redis Queue (RQ).
+
+---
+
+## Stack async
+
+Queue : Redis 7
+Worker : RQ (Redis Queue) — simple, Python natif, pas de configuration Celery complexe
+Monitoring des jobs : table AnalysisJob en PostgreSQL + polling côté UI
+
+---
+
+## Types de jobs
+
+### JOB-001 : extract_requirements
+
+Déclencheur : POST /api/v1/projects/{id}/jobs/extract-requirements
+Payload : { document_id: str }
+
+Étapes :
+1. Lire le document depuis le storage (20%)
+2. Extraire le texte brut (PDF/DOCX/MD) (30%)
+3. Découper en DocumentChunks (40%)
+4. Pour chaque chunk : appeler LLM extract_requirements (40% → 80%)
+5. Déduplication et normalisation des exigences (90%)
+6. Générer les embeddings de chaque exigence (95%)
+7. Sauvegarder en base (100%)
+
+Durée estimée :
+- MockProvider : < 1s
+- Ollama llama3.1:8b : 30s-3min selon le document
+- OpenAI gpt-4o-mini : 10-30s
+
+### JOB-002 : scan_repository
+
+Déclencheur : POST /api/v1/projects/{id}/jobs/scan-repository
+Payload : { repository_id: str }
+
+Étapes :
+1. Lister les fichiers éligibles (.py, .ts, .js, .java, .go, .md) (10%)
+2. Pour chaque fichier :
+   a. Lire le contenu (skip si taille > 5000 lignes)
+   b. Calculer content_hash
+   c. Appeler LLM summarize_file
+   d. Sauvegarder résumé + entités + constantes
+   e. Générer embedding du résumé
+   Progression : 10% → 90% en fonction du nb de fichiers
+3. Détecter les fichiers de test automatiquement (95%)
+4. Mettre à jour les compteurs du CodeRepository (100%)
+
+Durée estimée :
+- 50 fichiers Ollama : 5-15 min
+- 50 fichiers OpenAI : 1-3 min
+
+### JOB-003 : suggest_links
+
+Déclencheur : POST /api/v1/projects/{id}/jobs/suggest-links
+Payload : { min_score: float = 0.65 }
+
+Étapes :
+1. Charger tous les embeddings d'exigences du projet (10%)
+2. Charger tous les embeddings de fichiers du projet (20%)
+3. Pour chaque exigence :
+   a. Requête pgvector cosine similarity vs tous les fichiers
+   b. Filtrer les paires avec score > min_score
+   c. Optionnel : appeler LLM suggest_links pour affiner le score
+   d. Créer des TraceLinks avec status="suggested"
+   Progression : 20% → 90%
+4. Lancer la détection de conflits (RULE-002) (95%)
+5. Mettre à jour les métriques du projet (100%)
+
+### JOB-004 : generate_impact_report
+
+Déclencheur : POST /api/v1/projects/{id}/jobs/impact/{req_id}
+Payload : { modification_description: str }
+
+Étapes :
+1. Charger l'exigence et ses liens validés (20%)
+2. Parcours BFS à profondeur 2 dans le graphe de liens (40%)
+3. Identifier les tests liés aux fichiers impactés (60%)
+4. Détecter les conflits existants impliquant cette exigence (70%)
+5. Appeler LLM generate_impact_report (90%)
+6. Sauvegarder le rapport en storage/exports/ (100%)
+
+---
+
+## Modèle AnalysisJob
+
+```python
+class JobType(str, Enum):
+    EXTRACT_REQUIREMENTS = "extract_requirements"
+    SCAN_REPOSITORY = "scan_repository"
+    SUGGEST_LINKS = "suggest_links"
+    GENERATE_IMPACT = "generate_impact"
+
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+```
+
+Champs progress (0-100) mis à jour régulièrement par le worker.
+
+---
+
+## Polling côté UI
+
+Le frontend poll GET /api/v1/jobs/{job_id} toutes les 2 secondes.
+
+Réponse :
+```json
+{
+  "id": "job-uuid",
+  "type": "scan_repository",
+  "status": "running",
+  "progress": 42,
+  "created_at": "...",
+  "started_at": "..."
+}
+```
+
+Quand status = "completed" : le frontend refresh les données concernées.
+Quand status = "failed" : afficher error_message dans un toast d'erreur.
+
+Composant JobProgress.tsx :
+- Affiche une barre de progression animée
+- Affiche l'étape en cours (label dans result_data.current_step)
+- Affiche "Analyse du repo en cours : 42%"
+- Auto-disparaît 3 secondes après completion
+
+---
+
+## Configuration RQ
+
+```python
+# workers/jobs.py
+from rq import Queue
+from redis import Redis
+
+redis_conn = Redis.from_url(settings.REDIS_URL)
+job_queue = Queue("traceforge-jobs", connection=redis_conn)
+
+# Timeout par type de job
+JOB_TIMEOUTS = {
+    "extract_requirements": 600,   # 10 min max
+    "scan_repository": 1800,       # 30 min max
+    "suggest_links": 600,          # 10 min max
+    "generate_impact": 300,        # 5 min max
+}
+```
+
+Démarrer le worker :
+```bash
+python -m rq worker --url redis://redis:6379/0 traceforge-jobs
+```
+
+---
+
+## Gestion des erreurs dans les jobs
+
+```python
+async def run_job(job_id: str, job_func, **kwargs):
+    await update_job_status(job_id, JobStatus.RUNNING, started_at=now())
+    try:
+        await job_func(job_id=job_id, **kwargs)
+        await update_job_status(job_id, JobStatus.COMPLETED, progress=100)
+    except Exception as e:
+        logger.error(f"Job {job_id} failed: {e}", exc_info=True)
+        await update_job_status(
+            job_id, JobStatus.FAILED,
+            error_message=str(e)[:500]
+        )
+```
+
+En cas d'échec LLM : le job échoue avec un message explicite, l'utilisateur peut relancer.

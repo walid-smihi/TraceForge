@@ -1,0 +1,101 @@
+# Exigences fonctionnelles — TraceForge MVP
+
+Priorités : P0 = bloquant MVP | P1 = important MVP | P2 = nice-to-have MVP
+
+---
+
+## Projets
+
+REQ-001 [P0] : L'utilisateur doit pouvoir créer un projet avec un nom, une description et un domaine métier.
+REQ-002 [P0] : L'utilisateur doit pouvoir lister tous ses projets avec leurs métriques (nb exigences, nb fichiers, nb liens).
+REQ-003 [P1] : L'utilisateur doit pouvoir supprimer un projet après confirmation.
+REQ-004 [P1] : L'utilisateur doit pouvoir modifier le nom et la description d'un projet.
+
+---
+
+## Documents
+
+REQ-005 [P0] : L'utilisateur doit pouvoir uploader un fichier .pdf, .md, .txt ou .docx dans un projet.
+REQ-006 [P0] : Le système doit rejeter les fichiers invalides (mauvais format, taille > 50 MB) avec un message d'erreur clair.
+REQ-007 [P0] : Le système doit extraire le texte brut d'un document uploadé.
+REQ-008 [P0] : Le système doit découper le texte en sections (DocumentChunks) pour faciliter l'analyse.
+REQ-009 [P1] : L'utilisateur doit pouvoir supprimer un document d'un projet.
+REQ-010 [P1] : Le système doit afficher la progression du traitement d'un document (job asynchrone avec pourcentage).
+
+---
+
+## Exigences
+
+REQ-011 [P0] : Le système doit extraire automatiquement les exigences présentes dans un document via LLM.
+REQ-012 [P0] : Le système doit attribuer automatiquement un identifiant unique à chaque exigence extraite (REQ-001, REQ-002...).
+REQ-013 [P0] : Le système doit classifier chaque exigence par type : fonctionnelle, sécurité, performance, disponibilité, conformité, interface.
+REQ-014 [P0] : L'utilisateur doit pouvoir corriger manuellement le titre, la description et le type d'une exigence extraite.
+REQ-015 [P0] : L'utilisateur doit pouvoir créer une exigence manuellement.
+REQ-016 [P1] : L'utilisateur doit pouvoir supprimer une exigence.
+REQ-017 [P1] : Le système doit détecter les exigences ambiguës (absence de métrique mesurable) et les signaler.
+REQ-018 [P1] : L'utilisateur doit pouvoir filtrer les exigences par type, priorité et statut.
+REQ-019 [P1] : L'utilisateur doit pouvoir rechercher une exigence par mots-clés.
+REQ-020 [P2] : L'utilisateur doit pouvoir assigner une priorité à chaque exigence (critique, haute, moyenne, basse).
+
+---
+
+## Dépôt de code
+
+REQ-021 [P0] : L'utilisateur doit pouvoir importer un dépôt de code local (chemin ou .zip).
+REQ-022 [P1] : L'utilisateur doit pouvoir importer un dépôt GitHub public par URL.
+REQ-023 [P0] : Le système doit scanner les fichiers de code (.py, .ts, .js, .java, .go, .md) en excluant node_modules, .git, dist, build.
+REQ-024 [P0] : Le système doit générer un résumé textuel pour chaque fichier de code (rôle, entités, constantes).
+REQ-025 [P0] : Le système doit détecter automatiquement les fichiers de test (patterns : *.test.ts, *.spec.py, test_*.py).
+REQ-026 [P1] : L'utilisateur doit pouvoir consulter la liste des fichiers analysés avec leur résumé et leur langage.
+
+---
+
+## Liens de traçabilité
+
+REQ-027 [P0] : Le système doit générer des embeddings vectoriels pour chaque exigence et chaque fichier résumé.
+REQ-028 [P0] : Le système doit suggérer des liens entre exigences et fichiers/tests basés sur la similarité sémantique.
+REQ-029 [P0] : Chaque lien suggéré doit avoir un score de confiance entre 0% et 100%.
+REQ-030 [P0] : L'utilisateur doit pouvoir valider, rejeter ou ignorer un lien suggéré.
+REQ-031 [P0] : L'utilisateur doit pouvoir créer un lien manuel entre une exigence et un fichier ou test.
+REQ-032 [P1] : Un lien validé doit passer automatiquement en statut "à revoir" si l'exigence source est modifiée.
+REQ-033 [P1] : Les liens avec un score de confiance inférieur à 50% doivent rester en statut "suggéré" jusqu'à validation manuelle.
+
+---
+
+## Graphe de traçabilité
+
+REQ-034 [P0] : Le système doit afficher un graphe interactif des liens exigence-code-test.
+REQ-035 [P0] : Le graphe doit distinguer visuellement les nœuds par type (exigence, fichier source, test, ticket).
+REQ-036 [P1] : Le graphe doit distinguer les liens validés (trait plein) des liens suggérés (trait pointillé).
+REQ-037 [P1] : L'utilisateur doit pouvoir filtrer le graphe par type de nœud et statut de lien.
+REQ-038 [P1] : L'utilisateur doit pouvoir cliquer sur un nœud pour afficher ses détails dans un panneau latéral.
+REQ-039 [P2] : L'utilisateur doit pouvoir exporter le graphe en image PNG.
+
+---
+
+## Analyse d'impact et conflits
+
+REQ-040 [P0] : Le système doit générer un rapport d'impact listant les fichiers et tests liés à une exigence modifiée.
+REQ-041 [P0] : Le système doit détecter les conflits de valeurs numériques entre exigences du même domaine (ex : timeouts).
+REQ-042 [P1] : Le rapport d'impact doit être exportable en Markdown.
+REQ-043 [P2] : Le rapport d'impact doit être exportable en PDF.
+REQ-044 [P1] : Le système doit afficher un dashboard de qualité : couverture tests, exigences sans lien, exigences ambiguës.
+
+---
+
+## Paramètres IA
+
+REQ-045 [P0] : Le système doit fonctionner avec Ollama local (llama3.1:8b) sans clé API externe.
+REQ-046 [P0] : Le système doit proposer un MockProvider pour les tests et le dev sans LLM réel.
+REQ-047 [P1] : L'utilisateur doit pouvoir configurer un provider IA alternatif (OpenAI, Mistral) via l'interface.
+REQ-048 [P1] : Le système doit tracker les tokens consommés et le coût estimé par opération IA.
+
+---
+
+## Non-fonctionnelles
+
+REQ-049 [P0] : L'app doit tourner entièrement en local avec docker-compose up.
+REQ-050 [P0] : Les tâches longues (scan repo, extraction, embeddings) doivent être traitées en tâches de fond avec statut visible.
+REQ-051 [P0] : Le système ne doit pas envoyer de données à l'extérieur en mode Ollama.
+REQ-052 [P1] : L'app doit inclure un projet de démo préchargé (DemoShop) accessible au premier lancement.
+REQ-053 [P1] : Le temps de réponse des actions synchrones (navigation, filtres) doit être inférieur à 300ms.
