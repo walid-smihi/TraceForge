@@ -12,8 +12,8 @@
 [x] Stratégie sécurité définie
 [x] Stratégie tests définie
 [x] Dataset de démo imaginé
-[ ] Repo Git créé
-[ ] Docker prévu  ← docker-compose.yml écrit, à implémenter
+[x] Repo Git créé  ← initial commit (docs planning), commit 2 (docker-compose + .gitignore)
+[x] Docker prévu  ← docker-compose.yml + docker-compose.prod.yml créés
 [x] CI prévue  ← workflow GitHub Actions écrit
 [x] Environnements local/staging/prod définis
 [x] Roadmap par sprints
