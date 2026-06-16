@@ -57,12 +57,12 @@ services:
     networks:
       - traceforge-net
     restart: unless-stopped
-    command: python -m rq worker --url ${REDIS_URL} traceforge-jobs
+    command: rq worker --url ${REDIS_URL} traceforge-jobs
 
   postgres:
     image: pgvector/pgvector:pg16
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: traceforge
       POSTGRES_USER: traceforge
