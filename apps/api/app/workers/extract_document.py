@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select
 
@@ -24,7 +24,7 @@ async def _extract_document(job_id: uuid.UUID, document_id: uuid.UUID) -> None:
             return
 
         job.status = "running"
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.utcnow()
         job.progress = 0
         await session.commit()
 
@@ -64,7 +64,7 @@ async def _extract_document(job_id: uuid.UUID, document_id: uuid.UUID) -> None:
             document.status = "processed"
             job.status = "completed"
             job.progress = 100
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.utcnow()
             job.result_data = {
                 "chunks_count": len(raw_chunks),
                 "requirements_preview": req_result.content,
@@ -74,7 +74,7 @@ async def _extract_document(job_id: uuid.UUID, document_id: uuid.UUID) -> None:
         except Exception as exc:
             job.status = "failed"
             job.error_message = str(exc)
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.utcnow()
             document.status = "error"
             document.error_message = str(exc)
             await session.commit()
