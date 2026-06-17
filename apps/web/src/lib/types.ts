@@ -98,6 +98,12 @@ export interface TraceLink {
   confidence_score: number | null
   status: TraceLinkStatus
   is_manual: boolean
+  created_at: string
+  requirement_code: string | null
+  requirement_title: string | null
+  file_path: string | null
+  file_language: string | null
+  file_summary: string | null
 }
 
 // ── Jobs ──────────────────────────────────────────────────────────────────────

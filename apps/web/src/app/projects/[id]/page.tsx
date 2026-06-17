@@ -9,18 +9,20 @@ import { FilesList } from "@/components/repositories/FilesList"
 import { RepositoryForm } from "@/components/repositories/RepositoryForm"
 import { RequirementForm } from "@/components/requirements/RequirementForm"
 import { RequirementsTable } from "@/components/requirements/RequirementsTable"
+import { TraceLinksView } from "@/components/trace_links/TraceLinksView"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { useDocuments } from "@/lib/hooks/useDocuments"
 import { useRepositories } from "@/lib/hooks/useRepositories"
 import { useRequirements } from "@/lib/hooks/useRequirements"
+import { useTraceLinks } from "@/lib/hooks/useTraceLinks"
 import type { AnalysisJob, CodeFile, Document, Project, Repository, Requirement } from "@/lib/types"
 
 interface Props {
   params: { id: string }
 }
 
-type Tab = "documents" | "requirements" | "code"
+type Tab = "documents" | "requirements" | "code" | "liens"
 
 export default function ProjectPage({ params }: Props) {
   const { id } = params
@@ -39,9 +41,13 @@ export default function ProjectPage({ params }: Props) {
   const [repoFiles, setRepoFiles] = useState<CodeFile[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
 
+  // Liens tab state
+  const [linkJobId, setLinkJobId] = useState<string | null>(null)
+
   const { documents, loading: docsLoading, uploadDocument, deleteDocument, refetch: refetchDocs } = useDocuments(id)
   const { requirements, loading: reqsLoading, extractRequirements, createRequirement, updateRequirement, deleteRequirement, refetch: refetchReqs } = useRequirements(id)
   const { repositories, loading: reposLoading, addRepository, deleteRepository, getFiles, refetch: refetchRepos } = useRepositories(id)
+  const { links, loading: linksLoading, generateLinks, updateLink, deleteLink, refetch: refetchLinks } = useTraceLinks(id)
 
   useEffect(() => {
     api.get<Project>(`/api/v1/projects/${id}`)
@@ -61,6 +67,12 @@ export default function ProjectPage({ params }: Props) {
           (j.status === "pending" || j.status === "running")
       )
       if (activeScan) setScanJobId(activeScan.id)
+
+      const activeLinks = jobs.find(
+        (j) => j.job_type === "suggest_links" &&
+          (j.status === "pending" || j.status === "running")
+      )
+      if (activeLinks) setLinkJobId(activeLinks.id)
     }).catch(() => {})
   }, [id])
 
@@ -143,7 +155,7 @@ export default function ProjectPage({ params }: Props) {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-6">
-        {(["documents", "requirements", "code"] as Tab[]).map((tab) => (
+        {(["documents", "requirements", "code", "liens"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -157,7 +169,9 @@ export default function ProjectPage({ params }: Props) {
               ? `Documents (${documents.length})`
               : tab === "requirements"
               ? `Requirements (${requirements.length})`
-              : `Code (${repositories.length})`}
+              : tab === "code"
+              ? `Code (${repositories.length})`
+              : `Liens (${links.length})`}
           </button>
         ))}
       </div>
@@ -336,6 +350,22 @@ export default function ProjectPage({ params }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Liens tab */}
+      {activeTab === "liens" && (
+        <TraceLinksView
+          projectId={id}
+          links={links}
+          loading={linksLoading}
+          linkJobId={linkJobId}
+          onGenerate={generateLinks}
+          onJobStart={(jobId) => setLinkJobId(jobId)}
+          onJobComplete={() => { setLinkJobId(null); refetchLinks() }}
+          onAccept={(linkId) => updateLink(linkId, "validated")}
+          onReject={(linkId) => updateLink(linkId, "rejected")}
+          onDelete={(linkId) => deleteLink(linkId)}
+        />
       )}
 
       <RequirementForm
