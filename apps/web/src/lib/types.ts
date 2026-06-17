@@ -52,6 +52,37 @@ export interface Requirement {
   updated_at: string
 }
 
+// ── Repositories ──────────────────────────────────────────────────────────────
+
+export type RepositoryStatus = "pending" | "scanning" | "scanned" | "failed"
+
+export interface Repository {
+  id: string
+  project_id: string
+  name: string
+  source_type: string
+  local_path: string | null
+  status: RepositoryStatus
+  file_count: number
+  test_count: number
+  scanned_at: string | null
+  created_at: string
+}
+
+export interface CodeFile {
+  id: string
+  repository_id: string
+  project_id: string
+  path: string
+  language: string | null
+  summary: string | null
+  role_detected: string | null
+  entities: string[] | null
+  is_test_file: boolean
+  line_count: number | null
+  created_at: string
+}
+
 // ── Trace Links ───────────────────────────────────────────────────────────────
 
 export type TraceLinkStatus = "suggested" | "validated" | "rejected" | "needs_review"

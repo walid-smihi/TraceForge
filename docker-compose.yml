@@ -30,6 +30,7 @@ services:
     volumes:
       - ./apps/api:/app
       - ./storage:/app/storage
+      - /home:/home:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,6 +50,7 @@ services:
     volumes:
       - ./apps/api:/app
       - ./storage:/app/storage
+      - /home:/home:ro
     depends_on:
       postgres:
         condition: service_healthy
