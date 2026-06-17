@@ -31,6 +31,8 @@ services:
       - ./apps/api:/app
       - ./storage:/app/storage
       - /home:/home:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,6 +53,8 @@ services:
       - ./apps/api:/app
       - ./storage:/app/storage
       - /home:/home:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -8,6 +9,8 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.database import async_session_factory
+from app.llm.prompts import SUMMARIZE_FILE_PROMPT, SUMMARIZE_FILE_SYSTEM
+from app.llm.provider_factory import get_provider
 from app.models.analysis_job import AnalysisJob
 from app.models.code_file import CodeFile, CodeRepository
 
@@ -120,6 +123,11 @@ async def _scan_repository(
                 await session.commit()
                 return
 
+            llm = get_provider()
+            llm_available = await llm.health_check()
+            if not llm_available:
+                logger.warning("LLM unavailable, skipping summaries")
+
             # Delete existing files for this repo (re-scan)
             existing = await session.execute(
                 select(CodeFile).where(CodeFile.repository_id == repo_id)
@@ -148,12 +156,48 @@ async def _scan_repository(
                 is_test = _detect_test(str(file_path))
                 rel_path = str(file_path.relative_to(root))
 
+                summary = None
+                role = None
+                entities = None
+
+                summarizable = (
+                    llm_available
+                    and language not in ("JSON", "YAML", "Markdown", "Unknown")
+                    and line_count > 5
+                    and line_count <= 300
+                )
+                if summarizable:
+                    snippet = content[:1000]
+                    prompt = SUMMARIZE_FILE_PROMPT.format(
+                        file_path=rel_path,
+                        language=language,
+                        char_count=len(snippet),
+                        content=snippet,
+                    )
+                    try:
+                        response = await asyncio.wait_for(
+                            llm.complete(prompt, system=SUMMARIZE_FILE_SYSTEM),
+                            timeout=30.0,
+                        )
+                        raw = response.content.strip()
+                        if raw and not raw.endswith("}"):
+                            raw = raw.rsplit(",", 1)[0] + "}"
+                        data = json.loads(raw)
+                        summary = data.get("summary")
+                        role = data.get("role")
+                        entities = data.get("entities") or []
+                    except (asyncio.TimeoutError, Exception) as e:
+                        logger.warning("Summary failed for %s: %s", rel_path, e)
+
                 code_file = CodeFile(
                     repository_id=repo_id,
                     project_id=project_id,
                     path=rel_path,
                     language=language,
                     content_hash=content_hash,
+                    summary=summary,
+                    role_detected=role,
+                    entities=entities,
                     is_test_file=is_test,
                     line_count=line_count,
                 )
