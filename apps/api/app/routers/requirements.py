@@ -71,7 +71,6 @@ async def extract_requirements(
         str(job.id),
         str(document_id),
         str(project_id),
-        job_id=str(job.id),
         job_timeout=600,
     )
     return job

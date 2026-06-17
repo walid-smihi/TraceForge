@@ -90,7 +90,7 @@ async def upload_document(
         "app.workers.extract_document.run_extract_document",
         str(job.id),
         str(document.id),
-        job_id=str(job.id),
+        job_timeout=120,
     )
 
     return job
