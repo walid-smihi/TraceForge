@@ -71,12 +71,12 @@ async def _extract_requirements(
                 await session.commit()
 
                 prompt = EXTRACT_REQUIREMENTS_PROMPT.format(
-                    document_text=chunk.content[:2000]
+                    document_text=chunk.content[:1000]
                 )
                 try:
                     response = await asyncio.wait_for(
                         llm.complete(prompt, system=EXTRACT_REQUIREMENTS_SYSTEM),
-                        timeout=90.0,
+                        timeout=180.0,
                     )
                     raw_content = response.content.strip()
                     # Fix truncated JSON by closing unclosed structures
@@ -85,7 +85,7 @@ async def _extract_requirements(
                     data = json.loads(raw_content)
                     raw_reqs = data.get("requirements", [])
                 except asyncio.TimeoutError:
-                    logger.warning("Chunk %d timed out after 90s, skipping", i)
+                    logger.warning("Chunk %d timed out after 180s, skipping", i)
                     continue
                 except (json.JSONDecodeError, Exception) as e:
                     logger.warning("Chunk %d error: %s", i, e)
