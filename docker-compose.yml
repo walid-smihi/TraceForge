@@ -95,6 +95,10 @@ services:
       - traceforge-net
     restart: unless-stopped
 
+  # Ollama is optional — only needed for local LLM inference.
+  # Set LLM_PROVIDER=ollama in .env and start with: docker compose --profile ollama up
+  # For GPU support (NVIDIA): docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile ollama up
+  # For a cloud LLM (OpenAI-compatible): set LLM_PROVIDER=openai + OPENAI_API_KEY in .env
   ollama:
     image: ollama/ollama:latest
     ports:
