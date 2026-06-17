@@ -14,7 +14,7 @@ class OllamaProvider(LLMProvider):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.embed_model = embed_model
-        self._client = httpx.AsyncClient(timeout=120.0)
+        self._client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=300.0))
 
     async def complete(self, prompt: str, system: str = "", **kwargs: Any) -> LLMResponse:
         payload = {
@@ -23,6 +23,7 @@ class OllamaProvider(LLMProvider):
             "system": system,
             "stream": False,
             "format": "json",
+            "options": {"num_predict": 2048, "temperature": 0.1},
         }
         resp = await self._client.post(f"{self.base_url}/api/generate", json=payload)
         resp.raise_for_status()

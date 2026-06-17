@@ -15,9 +15,9 @@ export function useJobProgress(jobId: string | null, onComplete?: () => void) {
       try {
         const data = await api.get<AnalysisJob>(`/api/v1/jobs/${jobId}`)
         setJob(data)
-        if (data.status === "completed" || data.status === "failed") {
+        if (data.status === "completed" || data.status === "failed" || data.status === "cancelled") {
           clearInterval(intervalRef.current!)
-          onComplete?.()
+          if (data.status === "completed") onComplete?.()
         }
       } catch {
         clearInterval(intervalRef.current!)

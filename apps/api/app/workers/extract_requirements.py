@@ -7,13 +7,13 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.database import async_session_factory
+from app.llm.prompts import EXTRACT_REQUIREMENTS_PROMPT, EXTRACT_REQUIREMENTS_SYSTEM
 from app.llm.provider_factory import get_provider
 from app.models.analysis_job import AnalysisJob
 from app.models.document import DocumentChunk
 from app.models.requirement import Requirement
 from app.schemas.requirement import RequirementCreate
 from app.services.requirement_service import create_requirement
-from app.llm.prompts import EXTRACT_REQUIREMENTS_PROMPT, EXTRACT_REQUIREMENTS_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ async def _extract_requirements(
                 .where(DocumentChunk.document_id == document_id)
                 .order_by(DocumentChunk.chunk_index)
             )
-            chunks = result.scalars().all()
+            chunks = list(result.scalars().all())
 
             if not chunks:
                 job.status = "failed"
@@ -52,64 +52,76 @@ async def _extract_requirements(
                 await session.commit()
                 return
 
-            full_text = "\n\n".join(c.content for c in chunks)
-            job.progress = 20
-            await session.commit()
-
             llm = get_provider()
             available = await llm.health_check()
             if not available:
-                logger.warning("LLM provider unavailable, falling back to MockProvider")
+                logger.warning("LLM unavailable, falling back to MockProvider")
                 from app.llm.mock_provider import MockProvider
                 llm = MockProvider()
-
-            prompt = EXTRACT_REQUIREMENTS_PROMPT.format(document_text=full_text[:8000])
-            response = await llm.complete(prompt, system=EXTRACT_REQUIREMENTS_SYSTEM)
-            job.progress = 60
-            await session.commit()
-
-            try:
-                data = json.loads(response.content)
-                raw_reqs = data.get("requirements", [])
-            except json.JSONDecodeError:
-                raw_reqs = []
-                logger.error("LLM returned invalid JSON: %s", response.content[:200])
 
             existing = await session.execute(
                 select(Requirement).where(Requirement.project_id == project_id)
             )
-            existing_titles = {r.title.lower() for r in existing.scalars().all()}
-
+            seen_titles = {r.title.lower() for r in existing.scalars().all()}
             created = 0
-            for raw in raw_reqs:
-                title = raw.get("title", "").strip()
-                if not title or title.lower() in existing_titles:
-                    continue
-                existing_titles.add(title.lower())
 
-                data_create = RequirementCreate(
-                    title=title,
-                    description=raw.get("description"),
-                    req_type=raw.get("type", "functional"),
-                    priority=raw.get("priority", "medium"),
-                    is_ambiguous=raw.get("is_ambiguous", False),
-                    ambiguity_reason=raw.get("ambiguity_reason"),
+            for i, chunk in enumerate(chunks):
+                progress = 10 + int((i / len(chunks)) * 70)
+                job.progress = progress
+                await session.commit()
+
+                prompt = EXTRACT_REQUIREMENTS_PROMPT.format(
+                    document_text=chunk.content[:2000]
                 )
-                await create_requirement(session, project_id, data_create, document_id)
-                created += 1
+                try:
+                    response = await asyncio.wait_for(
+                        llm.complete(prompt, system=EXTRACT_REQUIREMENTS_SYSTEM),
+                        timeout=90.0,
+                    )
+                    raw_content = response.content.strip()
+                    # Fix truncated JSON by closing unclosed structures
+                    if raw_content and not raw_content.endswith("}"):
+                        raw_content = raw_content.rsplit(",", 1)[0] + "]}"
+                    data = json.loads(raw_content)
+                    raw_reqs = data.get("requirements", [])
+                except asyncio.TimeoutError:
+                    logger.warning("Chunk %d timed out after 90s, skipping", i)
+                    continue
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.warning("Chunk %d error: %s", i, e)
+                    continue
 
-            job.progress = 90
+                for raw in raw_reqs:
+                    title = raw.get("title", "").strip()
+                    if not title or title.lower() in seen_titles:
+                        continue
+                    seen_titles.add(title.lower())
+                    await create_requirement(
+                        session, project_id,
+                        RequirementCreate(
+                            title=title,
+                            description=raw.get("description"),
+                            req_type=raw.get("type", "functional"),
+                            priority=raw.get("priority", "medium"),
+                            is_ambiguous=raw.get("is_ambiguous", False),
+                            ambiguity_reason=raw.get("ambiguity_reason"),
+                        ),
+                        document_id,
+                    )
+                    created += 1
+
+            job.progress = 85
             await session.commit()
 
-            # Generate embeddings for each requirement
             reqs_result = await session.execute(
-                select(Requirement)
-                .where(Requirement.project_id == project_id, Requirement.embedding.is_(None))
+                select(Requirement).where(
+                    Requirement.project_id == project_id,
+                    Requirement.embedding.is_(None),
+                )
             )
             for req in reqs_result.scalars().all():
                 try:
-                    embedding = await llm.embed(f"{req.title} {req.description or ''}")
-                    req.embedding = embedding
+                    req.embedding = await llm.embed(f"{req.title} {req.description or ''}")
                 except Exception:
                     pass
             await session.commit()

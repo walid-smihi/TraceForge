@@ -36,6 +36,15 @@ export default function ProjectPage({ params }: Props) {
     api.get<Project>(`/api/v1/projects/${id}`)
       .then(setProject)
       .catch(() => setProjectError("Projet introuvable"))
+
+    // Restore active job from API on page load
+    api.get<AnalysisJob[]>(`/api/v1/projects/${id}/jobs`).then((jobs) => {
+      const active = jobs.find(
+        (j) => j.job_type === "extract_requirements" &&
+          (j.status === "pending" || j.status === "running")
+      )
+      if (active) setExtractJobId(active.id)
+    }).catch(() => {})
   }, [id])
 
   const handleUpload = async (file: File) => {
@@ -162,10 +171,11 @@ export default function ProjectPage({ params }: Props) {
 
           {extractJobId && (
             <div className="border rounded-lg p-4 bg-blue-50">
-              <p className="text-sm font-medium mb-2">Extraction en cours…</p>
+              <p className="text-sm font-medium mb-2">Extraction des exigences</p>
               <JobProgress
                 jobId={extractJobId}
                 onComplete={() => { setExtractJobId(null); refetchReqs() }}
+                onCancel={() => setExtractJobId(null)}
               />
             </div>
           )}

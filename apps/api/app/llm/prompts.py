@@ -5,18 +5,14 @@ EXTRACT_REQUIREMENTS_SYSTEM = (
 )
 
 EXTRACT_REQUIREMENTS_PROMPT = """\
-Analyse le texte suivant et extrais toutes les exigences logicielles.
+Extract software requirements from the text below. Return JSON only.
 
-Pour chaque exigence, fournis :
-- title : titre court de l'exigence (max 100 chars)
-- description : description complète
-- type : "functional" | "security" | "performance" | "availability" | "compliance" | "interface"
-- priority : "critical" | "high" | "medium" | "low"
-- is_ambiguous : true si l'exigence manque d'une métrique mesurable
-- ambiguity_reason : explication si is_ambiguous=true, sinon null
-
-Texte à analyser :
+Text:
 {document_text}
 
-Réponds avec ce format JSON exact :
-{{"requirements": [{{"title": "...", "description": "...", "type": "functional", "priority": "medium", "is_ambiguous": false, "ambiguity_reason": null}}]}}"""
+JSON format:
+{{"requirements": [{{"title": "short title", "description": "full description", "type": "functional", "priority": "medium", "is_ambiguous": false, "ambiguity_reason": null}}]}}
+
+Types: functional, security, performance, availability, compliance, interface
+Priorities: critical, high, medium, low
+Return max 10 requirements. JSON only, no explanation."""
