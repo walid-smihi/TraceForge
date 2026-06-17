@@ -29,8 +29,13 @@ Text:
 {document_text}
 
 JSON format:
-{{"requirements": [{{"title": "short title", "description": "full description", "type": "functional", "priority": "medium", "is_ambiguous": false, "ambiguity_reason": null}}]}}
+{{"requirements": [{{"title": "short descriptive title (3-6 words, NOT a code like REQ-XXX)", "description": "full description of what the system must do", "type": "functional", "priority": "medium", "is_ambiguous": false, "ambiguity_reason": null}}]}}
 
 Types: functional, security, performance, availability, compliance, interface
 Priorities: critical, high, medium, low
+Rules:
+- title must be a short human-readable label, never a code like REQ-001
+- description must be the full requirement sentence
+- detect the correct type (security, performance, etc.) from the content
+- mark is_ambiguous=true if the requirement uses vague words without measurable criteria
 Return max 10 requirements. JSON only, no explanation."""
