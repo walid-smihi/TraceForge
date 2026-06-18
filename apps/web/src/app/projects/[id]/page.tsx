@@ -50,7 +50,7 @@ export default function ProjectPage({ params }: Props) {
   const { documents, loading: docsLoading, uploadDocument, deleteDocument, refetch: refetchDocs } = useDocuments(id)
   const { requirements, loading: reqsLoading, extractRequirements, createRequirement, updateRequirement, deleteRequirement, refetch: refetchReqs } = useRequirements(id)
   const { repositories, loading: reposLoading, addRepository, deleteRepository, getFiles, refetch: refetchRepos } = useRepositories(id)
-  const { links, loading: linksLoading, generateLinks, updateLink, deleteLink, refetch: refetchLinks } = useTraceLinks(id)
+  const { links, loading: linksLoading, generateLinks, updateLink, deleteLink, deleteAllLinks, refetch: refetchLinks } = useTraceLinks(id)
   const { graph, metrics, loading: graphLoading, refetch: refetchGraph } = useGraph(id)
 
   useEffect(() => {
@@ -371,6 +371,7 @@ export default function ProjectPage({ params }: Props) {
           onAccept={(linkId) => updateLink(linkId, "validated")}
           onReject={(linkId) => updateLink(linkId, "rejected")}
           onDelete={(linkId) => deleteLink(linkId)}
+          onDeleteAll={() => deleteAllLinks()}
         />
       )}
 

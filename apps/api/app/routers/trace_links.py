@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis import Redis
 from rq import Queue
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -113,6 +114,18 @@ async def update_trace_link(
     await session.commit()
     await session.refresh(link)
     return await _enrich(session, link)
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_trace_links(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    project = await get_project(session, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    await session.execute(sa_delete(TraceLink).where(TraceLink.project_id == project_id))
+    await session.commit()
 
 
 @router.delete("/{link_id}", status_code=status.HTTP_204_NO_CONTENT)

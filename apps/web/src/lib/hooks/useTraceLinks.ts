@@ -39,5 +39,10 @@ export function useTraceLinks(projectId: string) {
     setLinks((prev) => prev.filter((l) => l.id !== linkId))
   }
 
-  return { links, loading, generateLinks, updateLink, deleteLink, refetch }
+  const deleteAllLinks = async (): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/trace-links`)
+    setLinks([])
+  }
+
+  return { links, loading, generateLinks, updateLink, deleteLink, deleteAllLinks, refetch }
 }

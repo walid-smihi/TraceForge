@@ -15,6 +15,7 @@ interface Props {
   onAccept: (linkId: string) => void
   onReject: (linkId: string) => void
   onDelete: (linkId: string) => void
+  onDeleteAll: () => void
 }
 
 const LANG_COLORS: Record<string, string> = {
@@ -54,10 +55,17 @@ export function TraceLinksView({
   onAccept,
   onReject,
   onDelete,
+  onDeleteAll,
 }: Props) {
   const handleGenerate = async () => {
     const job = await onGenerate()
     onJobStart(job.id)
+  }
+
+  const handleDeleteAll = () => {
+    if (window.confirm(`Supprimer les ${links.length} liens de ce projet ? Cette action est irréversible.`)) {
+      onDeleteAll()
+    }
   }
 
   // Group links by requirement
@@ -93,9 +101,16 @@ export function TraceLinksView({
             </>
           )}
         </div>
-        <Button size="sm" onClick={handleGenerate} disabled={!!linkJobId}>
-          {linkJobId ? "Génération…" : "Générer les liens"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {links.length > 0 && (
+            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={handleDeleteAll}>
+              Tout supprimer
+            </Button>
+          )}
+          <Button size="sm" onClick={handleGenerate} disabled={!!linkJobId}>
+            {linkJobId ? "Génération…" : "Générer les liens"}
+          </Button>
+        </div>
       </div>
 
       {linkJobId && (
