@@ -173,6 +173,17 @@ export interface ProjectMetrics {
   conflicts_open: number
 }
 
+// ── Search ────────────────────────────────────────────────────────────────────
+
+export interface SearchResult {
+  type: "requirement" | "code_file"
+  id: string
+  code: string
+  title: string
+  summary: string | null
+  score: number
+}
+
 // ── Jobs ──────────────────────────────────────────────────────────────────────
 
 export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled"

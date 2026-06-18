@@ -11,6 +11,7 @@ from app.routers import (
     projects,
     repositories,
     requirements,
+    search,
     trace_links,
 )
 from app.routers import (
@@ -41,6 +42,7 @@ app.include_router(trace_links.router, prefix="/api/v1")
 app.include_router(graph.router, prefix="/api/v1")
 app.include_router(conflicts.router, prefix="/api/v1")
 app.include_router(impact.router, prefix="/api/v1")
+app.include_router(search.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(export.router, prefix="/api/v1")
 app.include_router(settings_router.router, prefix="/api/v1")

@@ -13,6 +13,7 @@ import { FilesList } from "@/components/repositories/FilesList"
 import { RepositoryForm } from "@/components/repositories/RepositoryForm"
 import { RequirementForm } from "@/components/requirements/RequirementForm"
 import { RequirementsTable } from "@/components/requirements/RequirementsTable"
+import { SearchBar } from "@/components/search/SearchBar"
 import { TraceLinksView } from "@/components/trace_links/TraceLinksView"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
@@ -153,10 +154,13 @@ export default function ProjectPage({ params }: Props) {
               <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
             )}
           </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span>{documents.length} doc{documents.length !== 1 ? "s" : ""}</span>
-            <span>{requirements.length} req{requirements.length !== 1 ? "s" : ""}</span>
-            <span>{repositories.reduce((s, r) => s + r.file_count, 0)} fichiers</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>{documents.length} doc{documents.length !== 1 ? "s" : ""}</span>
+              <span>{requirements.length} req{requirements.length !== 1 ? "s" : ""}</span>
+              <span>{repositories.reduce((s, r) => s + r.file_count, 0)} fichiers</span>
+            </div>
+            <SearchBar projectId={id} />
           </div>
         </div>
       </div>
