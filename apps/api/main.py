@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import (
     documents,
     export,
+    graph,
     jobs,
     projects,
     repositories,
@@ -35,6 +36,7 @@ app.include_router(documents.router, prefix="/api/v1")
 app.include_router(requirements.router, prefix="/api/v1")
 app.include_router(repositories.router, prefix="/api/v1")
 app.include_router(trace_links.router, prefix="/api/v1")
+app.include_router(graph.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(export.router, prefix="/api/v1")
 app.include_router(settings_router.router, prefix="/api/v1")

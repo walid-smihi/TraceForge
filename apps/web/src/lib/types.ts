@@ -107,6 +107,72 @@ export interface TraceLink {
   file_summary: string | null
 }
 
+// ── Graph ─────────────────────────────────────────────────────────────────────
+
+export type GraphNodeType = "requirement" | "code_file"
+
+export interface RequirementNodeData {
+  id: string
+  code: string
+  title: string
+  description: string | null
+  req_type: RequirementType
+  priority: RequirementPriority
+  status: RequirementStatus
+  is_ambiguous: boolean
+  ambiguity_reason: string | null
+  is_linked: boolean
+}
+
+export interface CodeFileNodeData {
+  id: string
+  path: string
+  language: string | null
+  summary: string | null
+  role_detected: string | null
+  is_test_file: boolean
+  is_linked: boolean
+}
+
+export interface GraphNode {
+  id: string
+  node_type: GraphNodeType
+  label: string
+  sublabel: string | null
+  data: RequirementNodeData | CodeFileNodeData
+}
+
+export interface GraphEdge {
+  id: string
+  source: string
+  target: string
+  status: TraceLinkStatus
+  confidence_score: number | null
+  is_manual: boolean
+}
+
+export interface GraphData {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+export interface ProjectMetrics {
+  project_id: string
+  requirements_total: number
+  requirements_linked: number
+  requirements_unlinked: number
+  requirements_ambiguous: number
+  coverage_percent: number
+  code_files_total: number
+  code_files_linked: number
+  test_files_total: number
+  links_total: number
+  links_validated: number
+  links_suggested: number
+  links_rejected: number
+  conflicts_open: number
+}
+
 // ── Jobs ──────────────────────────────────────────────────────────────────────
 
 export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled"

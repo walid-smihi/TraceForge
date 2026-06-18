@@ -5,6 +5,8 @@ import Link from "next/link"
 import { DocumentList } from "@/components/documents/DocumentList"
 import { DocumentUpload } from "@/components/documents/DocumentUpload"
 import { JobProgress } from "@/components/jobs/JobProgress"
+import { MetricsBar } from "@/components/graph/MetricsBar"
+import { TraceGraph } from "@/components/graph/TraceGraph"
 import { FilesList } from "@/components/repositories/FilesList"
 import { RepositoryForm } from "@/components/repositories/RepositoryForm"
 import { RequirementForm } from "@/components/requirements/RequirementForm"
@@ -13,6 +15,7 @@ import { TraceLinksView } from "@/components/trace_links/TraceLinksView"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { useDocuments } from "@/lib/hooks/useDocuments"
+import { useGraph } from "@/lib/hooks/useGraph"
 import { useRepositories } from "@/lib/hooks/useRepositories"
 import { useRequirements } from "@/lib/hooks/useRequirements"
 import { useTraceLinks } from "@/lib/hooks/useTraceLinks"
@@ -22,7 +25,7 @@ interface Props {
   params: { id: string }
 }
 
-type Tab = "documents" | "requirements" | "code" | "liens"
+type Tab = "documents" | "requirements" | "code" | "liens" | "graphe"
 
 export default function ProjectPage({ params }: Props) {
   const { id } = params
@@ -48,6 +51,7 @@ export default function ProjectPage({ params }: Props) {
   const { requirements, loading: reqsLoading, extractRequirements, createRequirement, updateRequirement, deleteRequirement, refetch: refetchReqs } = useRequirements(id)
   const { repositories, loading: reposLoading, addRepository, deleteRepository, getFiles, refetch: refetchRepos } = useRepositories(id)
   const { links, loading: linksLoading, generateLinks, updateLink, deleteLink, refetch: refetchLinks } = useTraceLinks(id)
+  const { graph, metrics, loading: graphLoading, refetch: refetchGraph } = useGraph(id)
 
   useEffect(() => {
     api.get<Project>(`/api/v1/projects/${id}`)
@@ -155,7 +159,7 @@ export default function ProjectPage({ params }: Props) {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-6">
-        {(["documents", "requirements", "code", "liens"] as Tab[]).map((tab) => (
+        {(["documents", "requirements", "code", "liens", "graphe"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -171,7 +175,9 @@ export default function ProjectPage({ params }: Props) {
               ? `Requirements (${requirements.length})`
               : tab === "code"
               ? `Code (${repositories.length})`
-              : `Liens (${links.length})`}
+              : tab === "liens"
+              ? `Liens (${links.length})`
+              : "Graphe"}
           </button>
         ))}
       </div>
@@ -366,6 +372,32 @@ export default function ProjectPage({ params }: Props) {
           onReject={(linkId) => updateLink(linkId, "rejected")}
           onDelete={(linkId) => deleteLink(linkId)}
         />
+      )}
+
+      {/* Graphe tab */}
+      {activeTab === "graphe" && (
+        <div className="flex flex-col gap-4">
+          {graphLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="h-6 w-6 animate-spin border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : !graph || graph.nodes.length === 0 ? (
+            <div className="text-center py-12 border rounded-lg border-dashed">
+              <p className="text-muted-foreground text-sm">Aucune donnée à afficher.</p>
+              <p className="text-muted-foreground text-xs mt-1">
+                Ajoutez des exigences et du code, puis générez des liens pour voir le graphe.
+              </p>
+            </div>
+          ) : (
+            <>
+              {metrics && <MetricsBar metrics={metrics} />}
+              <TraceGraph graph={graph} />
+              <Button size="sm" variant="ghost" className="self-start" onClick={refetchGraph}>
+                Rafraîchir
+              </Button>
+            </>
+          )}
+        </div>
       )}
 
       <RequirementForm
