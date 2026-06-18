@@ -90,3 +90,69 @@ async def test_delete_requirement(client: AsyncClient, project_id: str):
     req_id = create.json()["id"]
     resp = await client.delete(f"/api/v1/projects/{project_id}/requirements/{req_id}")
     assert resp.status_code == 204
+
+
+_UNKNOWN_PROJECT = "00000000-0000-0000-0000-000000000000"
+_UNKNOWN_REQ = "00000000-0000-0000-0000-000000000001"
+
+
+@pytest.mark.asyncio
+async def test_list_requirements_unknown_project(client: AsyncClient):
+    resp = await client.get(f"/api/v1/projects/{_UNKNOWN_PROJECT}/requirements")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_create_requirement_unknown_project(client: AsyncClient):
+    resp = await client.post(
+        f"/api/v1/projects/{_UNKNOWN_PROJECT}/requirements", json={"title": "X"}
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_requirement(client: AsyncClient, project_id: str):
+    create = await client.post(
+        f"/api/v1/projects/{project_id}/requirements", json={"title": "Findable"}
+    )
+    req_id = create.json()["id"]
+    resp = await client.get(f"/api/v1/projects/{project_id}/requirements/{req_id}")
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "Findable"
+
+
+@pytest.mark.asyncio
+async def test_get_requirement_not_found(client: AsyncClient, project_id: str):
+    resp = await client.get(f"/api/v1/projects/{project_id}/requirements/{_UNKNOWN_REQ}")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_requirement_not_found(client: AsyncClient, project_id: str):
+    resp = await client.patch(
+        f"/api/v1/projects/{project_id}/requirements/{_UNKNOWN_REQ}", json={"title": "X"}
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_requirement_not_found(client: AsyncClient, project_id: str):
+    resp = await client.delete(f"/api/v1/projects/{project_id}/requirements/{_UNKNOWN_REQ}")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_extract_requirements_unknown_project(client: AsyncClient):
+    resp = await client.post(
+        f"/api/v1/projects/{_UNKNOWN_PROJECT}/requirements/extract?document_id={_UNKNOWN_REQ}"
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_extract_requirements_enqueues_job(client: AsyncClient, project_id: str):
+    resp = await client.post(
+        f"/api/v1/projects/{project_id}/requirements/extract?document_id={_UNKNOWN_REQ}"
+    )
+    assert resp.status_code == 202
+    assert resp.json()["job_type"] == "extract_requirements"

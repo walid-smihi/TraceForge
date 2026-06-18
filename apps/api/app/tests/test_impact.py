@@ -7,7 +7,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.code_file import CodeFile, CodeRepository
 from app.models.requirement import Requirement
 from app.models.trace_link import TraceLink
+from app.services import job_service
 from app.services.impact_service import build_impact_report
+from app.workers.generate_impact_report import _generate_impact_report
+
+
+class _StubLLM:
+    def __init__(self, summary: str = "Résumé de test", healthy: bool = True):
+        self._summary = summary
+        self._healthy = healthy
+
+    async def health_check(self) -> bool:
+        return self._healthy
+
+    async def complete(self, prompt: str, system: str = "", **kwargs):
+        from app.llm.base import LLMResponse
+
+        return LLMResponse(
+            content=f'{{"summary": "{self._summary}"}}',
+            input_tokens=10,
+            output_tokens=10,
+            model="stub",
+            provider="stub",
+        )
+
+    async def embed(self, text: str):
+        raise NotImplementedError
 
 
 @pytest.fixture
@@ -113,3 +138,69 @@ async def test_build_impact_report_unknown_requirement_raises(
         await build_impact_report(
             session, uuid.UUID(project_id), uuid.UUID("00000000-0000-0000-0000-000000000000")
         )
+
+
+@pytest.mark.asyncio
+async def test_generate_impact_report_worker_success(
+    monkeypatch, session: AsyncSession, project_id: str
+):
+    pid = uuid.UUID(project_id)
+    req = Requirement(project_id=pid, code="REQ-001", title="Req", req_type="functional")
+    session.add(req)
+    await session.commit()
+
+    job = await job_service.create_job(session, pid, "generate_impact")
+
+    monkeypatch.setattr("app.workers.generate_impact_report.get_provider", lambda: _StubLLM())
+
+    await _generate_impact_report(job.id, pid, req.id, "Add a field")
+
+    await session.refresh(job)
+    assert job.status == "completed"
+    assert job.progress == 100
+    assert job.result_data["summary"] == "Résumé de test"
+    assert job.result_data["requirement"]["code"] == "REQ-001"
+
+
+@pytest.mark.asyncio
+async def test_generate_impact_report_worker_llm_unavailable(
+    monkeypatch, session: AsyncSession, project_id: str
+):
+    pid = uuid.UUID(project_id)
+    req = Requirement(project_id=pid, code="REQ-001", title="Req", req_type="functional")
+    session.add(req)
+    await session.commit()
+
+    job = await job_service.create_job(session, pid, "generate_impact")
+
+    monkeypatch.setattr(
+        "app.workers.generate_impact_report.get_provider",
+        lambda: _StubLLM(healthy=False),
+    )
+
+    await _generate_impact_report(job.id, pid, req.id, "Add a field")
+
+    await session.refresh(job)
+    assert job.status == "completed"
+    assert job.result_data["summary"] is None
+
+
+@pytest.mark.asyncio
+async def test_generate_impact_report_worker_unknown_requirement_fails(
+    session: AsyncSession, project_id: str
+):
+    pid = uuid.UUID(project_id)
+    job = await job_service.create_job(session, pid, "generate_impact")
+
+    with pytest.raises(ValueError):
+        await _generate_impact_report(job.id, pid, uuid.uuid4(), "Add a field")
+
+    await session.refresh(job)
+    assert job.status == "failed"
+    assert job.error_message is not None
+
+
+@pytest.mark.asyncio
+async def test_generate_impact_report_worker_missing_job_returns(session: AsyncSession):
+    # Should return silently without raising when the job doesn't exist.
+    await _generate_impact_report(uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), "x")
