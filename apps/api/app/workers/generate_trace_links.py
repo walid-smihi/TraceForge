@@ -140,7 +140,7 @@ async def _generate_trace_links(job_id: uuid.UUID, project_id: uuid.UUID) -> Non
                         target_type="code_file",
                         target_id=f.id,
                         link_type="implements",
-                        confidence_score=round(score, 2),
+                        confidence_score=round(float(score), 2),
                         status="suggested",
                         is_manual=False,
                     )
