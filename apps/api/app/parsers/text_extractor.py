@@ -30,7 +30,7 @@ def _extract_docx(file_path: str) -> str:
     return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
 
 
-def chunk_text(text: str, chunk_size: int = 500) -> list[dict]:
+def chunk_text(text: str, chunk_size: int = 250) -> list[dict]:
     """Split text into chunks by section headers or token count (~4 chars/token)."""
     chunks = []
     sections = _split_by_headers(text)
@@ -72,29 +72,43 @@ def _split_by_headers(text: str) -> list[tuple[str, str]]:
     return sections if sections else [("", text)]
 
 
+def _pack_units(units: list[str], char_limit: int, separator: str) -> list[str]:
+    """Greedily pack text units into chunks no larger than char_limit."""
+    chunks = []
+    current: list[str] = []
+    current_len = 0
+
+    for unit in units:
+        unit = unit.strip()
+        if not unit:
+            continue
+        added_len = len(unit) + (len(separator) if current else 0)
+        if current_len + added_len > char_limit and current:
+            chunks.append(separator.join(current))
+            current = [unit]
+            current_len = len(unit)
+        else:
+            current.append(unit)
+            current_len += added_len
+
+    if current:
+        chunks.append(separator.join(current))
+
+    return chunks
+
+
 def _split_by_size(text: str, chunk_size: int) -> list[str]:
     char_limit = chunk_size * 4
     if len(text) <= char_limit:
         return [text.strip()]
 
     chunks = []
-    paragraphs = text.split("\n\n")
-    current = []
-    current_len = 0
-
-    for para in paragraphs:
-        para = para.strip()
-        if not para:
-            continue
-        if current_len + len(para) > char_limit and current:
-            chunks.append("\n\n".join(current))
-            current = [para]
-            current_len = len(para)
+    for para in _pack_units(text.split("\n\n"), char_limit, "\n\n"):
+        if len(para) <= char_limit:
+            chunks.append(para)
         else:
-            current.append(para)
-            current_len += len(para)
-
-    if current:
-        chunks.append("\n\n".join(current))
+            # A single paragraph (e.g. a whole PDF page) can still exceed the
+            # limit — fall back to splitting it by line so nothing is dropped.
+            chunks.extend(_pack_units(para.split("\n"), char_limit, "\n"))
 
     return chunks

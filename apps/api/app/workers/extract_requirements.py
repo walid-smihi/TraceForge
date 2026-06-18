@@ -71,7 +71,7 @@ async def _extract_requirements(
                 job.progress = progress
                 await session.commit()
 
-                prompt = EXTRACT_REQUIREMENTS_PROMPT.format(document_text=chunk.content[:1000])
+                prompt = EXTRACT_REQUIREMENTS_PROMPT.format(document_text=chunk.content)
                 try:
                     response = await asyncio.wait_for(
                         llm.complete(prompt, system=EXTRACT_REQUIREMENTS_SYSTEM),
