@@ -46,3 +46,36 @@ coverage/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Agile pre-launch docs (root-level numbered notes, 0. to 30.)
+/0. checklist avant de coder.txt
+/1. Vision Produit.txt
+/2. Cible utilisateur.txt
+/3. MVP.txt
+/4. requirements.md.txt
+/5. User stories.txt
+/6. Roadmap versionné progressif.txt
+/7. maquette écrans.txt
+/8. Architecture technique.txt
+/9. modèle de données.txt
+/10. règle métier de base.txt
+/11. stratégie IA.txt
+/12. Stratégie de cout.txt
+/13. Socle de dev.txt
+/14. Docker-compose.yml.txt
+/15. Stratégie git.txt
+/16. Statégie de tests.txt
+/17. dataset démo.txt
+/18. Secure défine.txt
+/19. Stratégie de stockage fichiers.txt
+/20. Stratégie d'analyse asynchrone.txt
+/21. CI_CD.txt
+/22. Définir les environnements.txt
+/23. Préparer la prod.txt
+/24. logs, monitoring et erreurs.txt
+/25. Documentation.txt
+/26. ADR.txt
+/27. Definition of Done.txt
+/28. Risques du projet.txt
+/29. Planification développement par spirnts.txt
+/30. scénario de démo.txt
