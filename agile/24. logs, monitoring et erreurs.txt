@@ -1,0 +1,233 @@
+# Logs, monitoring et gestion des erreurs — TraceForge
+
+---
+
+## Stratégie par environnement
+
+Local (development) : logs console structurés (niveau DEBUG), lisibles à l'oeil
+Staging : logs JSON structurés (niveau INFO)
+Production : logs JSON structurés (niveau INFO) + Sentry pour les erreurs
+
+---
+
+## Logging backend (Python / structlog)
+
+Bibliothèque : structlog (logs JSON structurés, faciles à filtrer)
+
+Configuration (config.py) :
+```python
+import structlog
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.dev.ConsoleRenderer() if APP_ENV == "development"
+        else structlog.processors.JSONRenderer(),
+    ]
+)
+
+logger = structlog.get_logger()
+```
+
+---
+
+## Événements à logger (avec contexte)
+
+### Documents et extraction
+```python
+logger.info("document.uploaded",
+    project_id=project_id,
+    document_id=document_id,
+    file_type=file_type,
+    size_bytes=size_bytes
+)
+
+logger.info("requirements.extracted",
+    project_id=project_id,
+    document_id=document_id,
+    count=len(requirements),
+    duration_ms=duration
+)
+
+logger.error("requirements.extraction_failed",
+    project_id=project_id,
+    document_id=document_id,
+    error=str(e)
+)
+```
+
+### Jobs asynchrones
+```python
+logger.info("job.started",
+    job_id=job_id,
+    job_type=job_type,
+    project_id=project_id
+)
+
+logger.info("job.progress",
+    job_id=job_id,
+    progress=progress,
+    step=current_step
+)
+
+logger.info("job.completed",
+    job_id=job_id,
+    duration_ms=duration,
+    result_summary=result_data
+)
+
+logger.error("job.failed",
+    job_id=job_id,
+    error=str(e),
+    traceback=traceback.format_exc()
+)
+```
+
+### Appels LLM
+```python
+logger.info("llm.call",
+    provider=provider,
+    model=model,
+    operation=operation,
+    input_tokens=input_tokens,
+    output_tokens=output_tokens,
+    duration_ms=duration,
+    cost_usd=cost
+)
+
+logger.warning("llm.call_failed",
+    provider=provider,
+    operation=operation,
+    attempt=attempt,
+    error=str(e)
+)
+```
+
+### API requests
+FastAPI middleware de logging automatique (via middleware ou Uvicorn access log) :
+```
+method=POST path=/api/v1/projects/{id}/documents status=200 duration_ms=145
+```
+
+---
+
+## Ce qu'on monitore (métriques clés)
+
+| Métrique | Importance | Outil |
+|---|---|---|
+| Erreurs backend (5xx) | critique | Sentry |
+| Jobs échoués | critique | logs + Sentry |
+| Temps d'analyse (LLM) | important | LLMUsage table |
+| Coût LLM par opération | important | LLMUsage table |
+| Taille des documents uploadés | info | logs |
+| Nb de suggestions générées par job | info | logs |
+| Temps de réponse API | important | logs |
+
+---
+
+## Gestion des erreurs dans l'API
+
+Exceptions métier personnalisées :
+```python
+class TraceForgeError(Exception):
+    status_code: int = 500
+    detail: str = "Erreur interne"
+
+class ProjectNotFoundError(TraceForgeError):
+    status_code = 404
+    detail = "Projet introuvable"
+
+class DocumentTooLargeError(TraceForgeError):
+    status_code = 413
+    detail = "Fichier trop volumineux (max 50 MB)"
+
+class UnsupportedFileFormatError(TraceForgeError):
+    status_code = 422
+    detail = "Format de fichier non supporté"
+
+class LLMUnavailableError(TraceForgeError):
+    status_code = 503
+    detail = "Service IA temporairement indisponible"
+```
+
+Handler global FastAPI :
+```python
+@app.exception_handler(TraceForgeError)
+async def traceforge_error_handler(request, exc: TraceForgeError):
+    logger.warning("api.error", status_code=exc.status_code, detail=exc.detail)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+@app.exception_handler(Exception)
+async def unhandled_error_handler(request, exc):
+    logger.error("api.unhandled_error", error=str(exc), exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": "Erreur interne du serveur"})
+```
+
+---
+
+## Format de réponse d'erreur
+
+```json
+{
+  "detail": "Fichier trop volumineux (max 50 MB)",
+  "error_code": "DOCUMENT_TOO_LARGE"
+}
+```
+
+---
+
+## Gestion des erreurs côté frontend
+
+Toast notifications (via Shadcn/ui Sonner) :
+- Succès : toast vert "Extraction terminée — 6 exigences extraites"
+- Erreur : toast rouge "Erreur : le fichier dépasse 50 MB"
+- Warning : toast orange "Analyse dégradée : Ollama est indisponible, utilisation du MockProvider"
+
+Jobs échoués : affichage inline du error_message dans le JobProgress + bouton "Réessayer"
+
+---
+
+## Sentry (production uniquement)
+
+```python
+# main.py
+import sentry_sdk
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.APP_ENV,
+        traces_sample_rate=0.1,  # 10% des transactions tracées
+    )
+```
+
+Variable d'environnement : SENTRY_DSN (laisser vide pour désactiver)
+
+---
+
+## Logs Docker en production
+
+```bash
+# Voir les logs en temps réel
+docker-compose -f docker-compose.prod.yml logs -f backend
+docker-compose -f docker-compose.prod.yml logs -f worker
+
+# Chercher les erreurs
+docker-compose -f docker-compose.prod.yml logs backend | grep '"level":"error"'
+
+# Logs des N dernières heures
+docker-compose -f docker-compose.prod.yml logs --since 2h backend
+```
+
+Rotation des logs configurée dans Docker daemon (/etc/docker/daemon.json) :
+```json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+```

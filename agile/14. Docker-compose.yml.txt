@@ -1,0 +1,300 @@
+# Docker Compose — TraceForge
+
+Services : frontend | backend | worker | postgres | redis | ollama (optionnel)
+
+---
+
+## docker-compose.yml (développement)
+
+```yaml
+version: '3.9'
+
+services:
+
+  frontend:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./apps/web/src:/app/src
+      - ./apps/web/public:/app/public
+    depends_on:
+      - backend
+    networks:
+      - traceforge-net
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./apps/api:/app
+      - ./storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - traceforge-net
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./apps/api:/app
+      - ./storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - traceforge-net
+    restart: unless-stopped
+    command: python -m rq worker --url ${REDIS_URL} traceforge-jobs
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: traceforge
+      POSTGRES_USER: traceforge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traceforgedev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traceforge -d traceforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - traceforge-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - traceforge-net
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    profiles:
+      - ollama
+    networks:
+      - traceforge-net
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_data:
+
+networks:
+  traceforge-net:
+    driver: bridge
+```
+
+---
+
+## docker-compose.prod.yml (VPS production)
+
+```yaml
+version: '3.9'
+
+services:
+
+  frontend:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.prod
+    environment:
+      - NEXT_PUBLIC_API_URL=https://api.traceforge.dev
+    networks:
+      - traceforge-net
+    restart: always
+
+  backend:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - traceforge-net
+    restart: always
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - traceforge-net
+    restart: always
+    command: python -m rq worker --url ${REDIS_URL} traceforge-jobs
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    env_file:
+      - .env.prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traceforge -d traceforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - traceforge-net
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - traceforge-net
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - traceforge-net
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  traceforge-net:
+    driver: bridge
+```
+
+---
+
+## Dockerfile backend (apps/api/Dockerfile)
+
+```dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+```
+
+---
+
+## Dockerfile frontend (apps/web/Dockerfile)
+
+```dockerfile
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV production
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+---
+
+## Commandes utiles
+
+```bash
+# Démarrer en dev (sans Ollama)
+docker-compose up --build
+
+# Démarrer avec Ollama
+docker-compose --profile ollama up --build
+
+# Voir les logs d'un service
+docker-compose logs -f backend
+docker-compose logs -f worker
+
+# Exécuter une commande dans un container
+docker-compose exec backend alembic upgrade head
+docker-compose exec backend pytest
+
+# Accéder à PostgreSQL
+docker-compose exec postgres psql -U traceforge -d traceforge
+
+# Arrêter et supprimer les volumes (reset complet)
+docker-compose down -v
+```
