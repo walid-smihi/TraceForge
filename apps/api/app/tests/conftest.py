@@ -9,8 +9,15 @@ from app.database import Base, get_session
 from main import app
 
 TEST_DB_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://traceforge:traceforgedev@localhost:5433/traceforge"
+    "DATABASE_URL", "postgresql+asyncpg://traceforge:traceforgedev@localhost:5433/traceforge_test"
 )
+
+if "test" not in TEST_DB_URL.rsplit("/", 1)[-1]:
+    raise RuntimeError(
+        f"Refusing to run tests against a database without 'test' in its name: {TEST_DB_URL!r}. "
+        "This fixture suite drops all tables on teardown — pointing it at a real database "
+        "destroys data. Use a dedicated *_test database."
+    )
 
 test_engine = create_async_engine(TEST_DB_URL, echo=False)
 test_session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
