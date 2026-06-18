@@ -54,9 +54,7 @@ async def list_files(
     repository_id: uuid.UUID,
 ) -> list[CodeFile]:
     result = await session.execute(
-        select(CodeFile)
-        .where(CodeFile.repository_id == repository_id)
-        .order_by(CodeFile.path)
+        select(CodeFile).where(CodeFile.repository_id == repository_id).order_by(CodeFile.path)
     )
     return list(result.scalars().all())
 

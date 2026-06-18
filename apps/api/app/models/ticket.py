@@ -13,8 +13,12 @@ from app.database import Base
 class Ticket(Base):
     __tablename__ = "tickets"
 
-    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
     external_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     source: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)

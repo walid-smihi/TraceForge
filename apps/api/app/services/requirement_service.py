@@ -21,9 +21,7 @@ _PERF_METRIC = re.compile(r"\d+\s*(ms|s|min|%|rps|req/s)", re.IGNORECASE)
 
 
 async def _next_code(session: AsyncSession, project_id: uuid.UUID) -> str:
-    result = await session.execute(
-        select(func.count()).where(Requirement.project_id == project_id)
-    )
+    result = await session.execute(select(func.count()).where(Requirement.project_id == project_id))
     count = result.scalar_one()
     return f"REQ-{count + 1:03d}"
 
@@ -58,9 +56,7 @@ async def list_requirements(
         q = q.where(Requirement.is_ambiguous == is_ambiguous)
     if search:
         pattern = f"%{search}%"
-        q = q.where(
-            Requirement.title.ilike(pattern) | Requirement.description.ilike(pattern)
-        )
+        q = q.where(Requirement.title.ilike(pattern) | Requirement.description.ilike(pattern))
     q = q.order_by(Requirement.code)
     result = await session.execute(q)
     return list(result.scalars().all())
@@ -70,9 +66,7 @@ async def get_requirement(
     session: AsyncSession, project_id: uuid.UUID, req_id: uuid.UUID
 ) -> Optional[Requirement]:
     result = await session.execute(
-        select(Requirement).where(
-            Requirement.id == req_id, Requirement.project_id == project_id
-        )
+        select(Requirement).where(Requirement.id == req_id, Requirement.project_id == project_id)
     )
     return result.scalar_one_or_none()
 

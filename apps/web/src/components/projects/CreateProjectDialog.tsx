@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 interface Props {
   open: boolean
   onClose: () => void
-  onCreate: (name: string, description?: string, domain?: string) => Promise<void>
+  onCreate: (name: string, description?: string, domain?: string) => Promise<unknown>
 }
 
 export function CreateProjectDialog({ open, onClose, onCreate }: Props) {

@@ -32,9 +32,7 @@ def _save_file(project_id: uuid.UUID, file: UploadFile, content: bytes) -> tuple
 
 
 @router.get("", response_model=list[DocumentResponse])
-async def list_documents(
-    project_id: uuid.UUID, session: AsyncSession = Depends(get_session)
-):
+async def list_documents(project_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
     project = await get_project(session, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

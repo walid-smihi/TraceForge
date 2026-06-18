@@ -91,7 +91,7 @@ export default function ProjectPage({ params }: Props) {
     setActiveTab("requirements")
   }
 
-  const handleSaveReq = async (data: { title: string; description?: string; req_type: string; priority: string }) => {
+  const handleSaveReq = async (data: { title: string; description?: string | undefined; req_type: string; priority: string }) => {
     if (editingReq) {
       await updateRequirement(editingReq.id, data)
     } else {

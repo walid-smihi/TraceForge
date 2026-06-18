@@ -3,9 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from redis import Redis
-from rq import Queue
 from rq.command import send_stop_job_command
-from rq.exceptions import InvalidJobOperation
 from rq.job import Job
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,7 +42,9 @@ async def cancel_job(job_id: uuid.UUID, session: AsyncSession = Depends(get_sess
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.status not in ("pending", "running"):
-        raise HTTPException(status_code=400, detail=f"Cannot cancel a job with status '{job.status}'")
+        raise HTTPException(
+            status_code=400, detail=f"Cannot cancel a job with status '{job.status}'"
+        )
 
     conn = _redis()
     try:

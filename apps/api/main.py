@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import settings
 from app.routers import (
     documents,
     export,
@@ -9,9 +8,12 @@ from app.routers import (
     projects,
     repositories,
     requirements,
-    settings as settings_router,
     trace_links,
 )
+from app.routers import (
+    settings as settings_router,
+)
+from config import settings
 
 app = FastAPI(
     title="TraceForge API",

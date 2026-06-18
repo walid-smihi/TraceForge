@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document, DocumentChunk
 
-
 ALLOWED_EXTENSIONS = {"pdf", "docx", "md", "txt"}
 ALLOWED_MIME_TYPES = {
     "application/pdf",
@@ -31,9 +30,7 @@ async def get_document(
     session: AsyncSession, project_id: uuid.UUID, document_id: uuid.UUID
 ) -> Optional[Document]:
     result = await session.execute(
-        select(Document).where(
-            Document.id == document_id, Document.project_id == project_id
-        )
+        select(Document).where(Document.id == document_id, Document.project_id == project_id)
     )
     return result.scalar_one_or_none()
 
@@ -68,9 +65,7 @@ async def delete_document(session: AsyncSession, document: Document) -> None:
     await session.commit()
 
 
-async def list_chunks(
-    session: AsyncSession, document_id: uuid.UUID
-) -> list[DocumentChunk]:
+async def list_chunks(session: AsyncSession, document_id: uuid.UUID) -> list[DocumentChunk]:
     result = await session.execute(
         select(DocumentChunk)
         .where(DocumentChunk.document_id == document_id)

@@ -14,6 +14,7 @@ def get_provider() -> LLMProvider:
             return MockProvider()
         case "ollama":
             from app.llm.ollama_provider import OllamaProvider
+
             return OllamaProvider(
                 base_url=settings.OLLAMA_BASE_URL,
                 model=settings.OLLAMA_MODEL,
@@ -21,10 +22,13 @@ def get_provider() -> LLMProvider:
             )
         case "openai":
             from app.llm.openai_provider import OpenAIProvider
+
             return OpenAIProvider(
                 api_key=settings.OPENAI_API_KEY,
                 model=settings.OPENAI_MODEL,
             )
         case _:
-            logger.warning("Unknown LLM_PROVIDER=%s, falling back to MockProvider", settings.LLM_PROVIDER)
+            logger.warning(
+                "Unknown LLM_PROVIDER=%s, falling back to MockProvider", settings.LLM_PROVIDER
+            )
             return MockProvider()

@@ -41,10 +41,12 @@ def chunk_text(text: str, chunk_size: int = 500) -> list[dict]:
                 continue
             sub_chunks = _split_by_size(content, chunk_size)
             for i, chunk in enumerate(sub_chunks):
-                chunks.append({
-                    "content": chunk,
-                    "section_title": title if i == 0 else f"{title} (suite)",
-                })
+                chunks.append(
+                    {
+                        "content": chunk,
+                        "section_title": title if i == 0 else f"{title} (suite)",
+                    }
+                )
     else:
         for chunk in _split_by_size(text, chunk_size):
             chunks.append({"content": chunk, "section_title": None})

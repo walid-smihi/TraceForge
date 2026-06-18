@@ -1,13 +1,16 @@
+import os
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import app.models  # noqa: F401 — register all models
 from app.database import Base, get_session
 from main import app
 
-import app.models  # noqa: F401 — register all models
-
-TEST_DB_URL = "postgresql+asyncpg://traceforge:traceforgedev@localhost:5433/traceforge"
+TEST_DB_URL = os.environ.get(
+    "DATABASE_URL", "postgresql+asyncpg://traceforge:traceforgedev@localhost:5433/traceforge"
+)
 
 test_engine = create_async_engine(TEST_DB_URL, echo=False)
 test_session_factory = async_sessionmaker(test_engine, expire_on_commit=False)

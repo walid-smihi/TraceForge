@@ -17,14 +17,19 @@ from app.models.code_file import CodeFile, CodeRepository
 logger = logging.getLogger(__name__)
 
 LANGUAGE_MAP = {
-    "ts": "TypeScript", "tsx": "TypeScript",
-    "js": "JavaScript", "jsx": "JavaScript", "mjs": "JavaScript",
+    "ts": "TypeScript",
+    "tsx": "TypeScript",
+    "js": "JavaScript",
+    "jsx": "JavaScript",
+    "mjs": "JavaScript",
     "py": "Python",
     "java": "Java",
     "go": "Go",
     "rs": "Rust",
     "cs": "C#",
-    "cpp": "C++", "cc": "C++", "cxx": "C++",
+    "cpp": "C++",
+    "cc": "C++",
+    "cxx": "C++",
     "c": "C",
     "rb": "Ruby",
     "php": "PHP",
@@ -32,30 +37,75 @@ LANGUAGE_MAP = {
     "kt": "Kotlin",
     "scala": "Scala",
     "sql": "SQL",
-    "sh": "Shell", "bash": "Shell",
-    "yaml": "YAML", "yml": "YAML",
+    "sh": "Shell",
+    "bash": "Shell",
+    "yaml": "YAML",
+    "yml": "YAML",
     "json": "JSON",
     "md": "Markdown",
     "html": "HTML",
-    "css": "CSS", "scss": "CSS",
+    "css": "CSS",
+    "scss": "CSS",
 }
 
 SKIP_DIRS = {
-    "node_modules", ".git", "__pycache__", ".next", "dist", "build",
-    ".venv", "venv", "env", ".env", "coverage", ".cache", ".turbo",
-    "out", "target", ".idea", ".vscode",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".next",
+    "dist",
+    "build",
+    ".venv",
+    "venv",
+    "env",
+    ".env",
+    "coverage",
+    ".cache",
+    ".turbo",
+    "out",
+    "target",
+    ".idea",
+    ".vscode",
 }
 
 SKIP_EXTENSIONS = {
-    "lock", "min.js", "min.css", "map", "pyc", "pyo", "class",
-    "jar", "war", "exe", "dll", "so", "dylib", "ico", "png",
-    "jpg", "jpeg", "gif", "svg", "woff", "woff2", "ttf", "eot",
-    "pdf", "zip", "tar", "gz",
+    "lock",
+    "min.js",
+    "min.css",
+    "map",
+    "pyc",
+    "pyo",
+    "class",
+    "jar",
+    "war",
+    "exe",
+    "dll",
+    "so",
+    "dylib",
+    "ico",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "svg",
+    "woff",
+    "woff2",
+    "ttf",
+    "eot",
+    "pdf",
+    "zip",
+    "tar",
+    "gz",
 }
 
 TEST_PATTERNS = (
-    ".test.", ".spec.", "_test.", "_spec.",
-    "/tests/", "/test/", "/__tests__/",
+    ".test.",
+    ".spec.",
+    "_test.",
+    "_spec.",
+    "/tests/",
+    "/test/",
+    "/__tests__/",
 )
 
 
@@ -81,14 +131,10 @@ def _collect_files(root: Path) -> list[Path]:
 
 
 def run_scan_repository(job_id: str, repo_id: str, project_id: str) -> None:
-    asyncio.run(_scan_repository(
-        uuid.UUID(job_id), uuid.UUID(repo_id), uuid.UUID(project_id)
-    ))
+    asyncio.run(_scan_repository(uuid.UUID(job_id), uuid.UUID(repo_id), uuid.UUID(project_id)))
 
 
-async def _scan_repository(
-    job_id: uuid.UUID, repo_id: uuid.UUID, project_id: uuid.UUID
-) -> None:
+async def _scan_repository(job_id: uuid.UUID, repo_id: uuid.UUID, project_id: uuid.UUID) -> None:
     async with async_session_factory() as session:
         job = await session.get(AnalysisJob, job_id)
         repo = await session.get(CodeRepository, repo_id)

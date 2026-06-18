@@ -43,9 +43,7 @@ async def test_update_project(client: AsyncClient):
     create = await client.post("/api/v1/projects", json={"name": "Update Test"})
     project_id = create.json()["id"]
 
-    response = await client.patch(
-        f"/api/v1/projects/{project_id}", json={"name": "Updated Name"}
-    )
+    response = await client.patch(f"/api/v1/projects/{project_id}", json={"name": "Updated Name"})
     assert response.status_code == 200
     assert response.json()["name"] == "Updated Name"
 

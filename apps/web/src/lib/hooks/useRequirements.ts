@@ -21,7 +21,7 @@ export function useRequirements(projectId: string, filters: Filters = {}) {
     try {
       setLoading(true)
       const params = new URLSearchParams()
-      if (filters.req_type) params.set("type", filters.req_type)
+      if (filters.req_type) params.set("req_type", filters.req_type)
       if (filters.priority) params.set("priority", filters.priority)
       if (filters.status) params.set("status", filters.status)
       if (filters.is_ambiguous !== undefined) params.set("is_ambiguous", String(filters.is_ambiguous))
@@ -47,13 +47,16 @@ export function useRequirements(projectId: string, filters: Filters = {}) {
     return job
   }
 
-  const createRequirement = async (data: { title: string; description?: string; req_type?: string; priority?: string }) => {
+  const createRequirement = async (data: { title: string; description?: string | undefined; req_type?: string; priority?: string }) => {
     const req = await api.post<Requirement>(`/api/v1/projects/${projectId}/requirements`, data)
     setRequirements((prev) => [...prev, req])
     return req
   }
 
-  const updateRequirement = async (id: string, data: Partial<Requirement>) => {
+  const updateRequirement = async (
+    id: string,
+    data: { title?: string; description?: string | undefined; req_type?: string; priority?: string; status?: string }
+  ) => {
     const req = await api.patch<Requirement>(`/api/v1/projects/${projectId}/requirements/${id}`, data)
     setRequirements((prev) => prev.map((r) => (r.id === id ? req : r)))
     return req

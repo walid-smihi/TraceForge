@@ -12,7 +12,7 @@ const PRIORITIES = ["critical", "high", "medium", "low"]
 interface Props {
   open: boolean
   onClose: () => void
-  onSave: (data: { title: string; description?: string; req_type: string; priority: string }) => Promise<void>
+  onSave: (data: { title: string; description?: string | undefined; req_type: string; priority: string }) => Promise<void>
   initial?: Requirement | null
 }
 

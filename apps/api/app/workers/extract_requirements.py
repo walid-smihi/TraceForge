@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 def run_extract_requirements(job_id: str, document_id: str, project_id: str) -> None:
-    asyncio.run(_extract_requirements(
-        uuid.UUID(job_id), uuid.UUID(document_id), uuid.UUID(project_id)
-    ))
+    asyncio.run(
+        _extract_requirements(uuid.UUID(job_id), uuid.UUID(document_id), uuid.UUID(project_id))
+    )
 
 
 async def _extract_requirements(
@@ -57,6 +57,7 @@ async def _extract_requirements(
             if not available:
                 logger.warning("LLM unavailable, falling back to MockProvider")
                 from app.llm.mock_provider import MockProvider
+
                 llm = MockProvider()
 
             existing = await session.execute(
@@ -70,9 +71,7 @@ async def _extract_requirements(
                 job.progress = progress
                 await session.commit()
 
-                prompt = EXTRACT_REQUIREMENTS_PROMPT.format(
-                    document_text=chunk.content[:1000]
-                )
+                prompt = EXTRACT_REQUIREMENTS_PROMPT.format(document_text=chunk.content[:1000])
                 try:
                     response = await asyncio.wait_for(
                         llm.complete(prompt, system=EXTRACT_REQUIREMENTS_SYSTEM),
@@ -97,7 +96,8 @@ async def _extract_requirements(
                         continue
                     seen_titles.add(title.lower())
                     await create_requirement(
-                        session, project_id,
+                        session,
+                        project_id,
                         RequirementCreate(
                             title=title,
                             description=raw.get("description"),

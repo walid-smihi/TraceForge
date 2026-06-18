@@ -103,7 +103,9 @@ async def update_trace_link(
         raise HTTPException(status_code=404, detail="Trace link not found")
 
     if data.status not in _VALID_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Status must be one of: {', '.join(_VALID_STATUSES)}")
+        raise HTTPException(
+            status_code=400, detail=f"Status must be one of: {', '.join(_VALID_STATUSES)}"
+        )
 
     link.status = data.status
     if data.validation_note is not None:
