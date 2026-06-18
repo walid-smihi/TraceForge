@@ -7,6 +7,8 @@ import { DocumentUpload } from "@/components/documents/DocumentUpload"
 import { JobProgress } from "@/components/jobs/JobProgress"
 import { MetricsBar } from "@/components/graph/MetricsBar"
 import { TraceGraph } from "@/components/graph/TraceGraph"
+import { ConflictsList } from "@/components/impact/ConflictsList"
+import { ImpactView } from "@/components/impact/ImpactView"
 import { FilesList } from "@/components/repositories/FilesList"
 import { RepositoryForm } from "@/components/repositories/RepositoryForm"
 import { RequirementForm } from "@/components/requirements/RequirementForm"
@@ -14,6 +16,7 @@ import { RequirementsTable } from "@/components/requirements/RequirementsTable"
 import { TraceLinksView } from "@/components/trace_links/TraceLinksView"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
+import { useConflicts } from "@/lib/hooks/useConflicts"
 import { useDocuments } from "@/lib/hooks/useDocuments"
 import { useGraph } from "@/lib/hooks/useGraph"
 import { useRepositories } from "@/lib/hooks/useRepositories"
@@ -25,7 +28,7 @@ interface Props {
   params: { id: string }
 }
 
-type Tab = "documents" | "requirements" | "code" | "liens" | "graphe"
+type Tab = "documents" | "requirements" | "code" | "liens" | "graphe" | "impact"
 
 export default function ProjectPage({ params }: Props) {
   const { id } = params
@@ -52,6 +55,7 @@ export default function ProjectPage({ params }: Props) {
   const { repositories, loading: reposLoading, addRepository, deleteRepository, getFiles, refetch: refetchRepos } = useRepositories(id)
   const { links, loading: linksLoading, generateLinks, updateLink, deleteLink, deleteAllLinks, refetch: refetchLinks } = useTraceLinks(id)
   const { graph, metrics, loading: graphLoading, refetch: refetchGraph } = useGraph(id)
+  const { conflicts, loading: conflictsLoading, detectConflicts, updateConflict } = useConflicts(id)
 
   useEffect(() => {
     api.get<Project>(`/api/v1/projects/${id}`)
@@ -159,7 +163,7 @@ export default function ProjectPage({ params }: Props) {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-6">
-        {(["documents", "requirements", "code", "liens", "graphe"] as Tab[]).map((tab) => (
+        {(["documents", "requirements", "code", "liens", "graphe", "impact"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -177,7 +181,9 @@ export default function ProjectPage({ params }: Props) {
               ? `Code (${repositories.length})`
               : tab === "liens"
               ? `Liens (${links.length})`
-              : "Graphe"}
+              : tab === "graphe"
+              ? "Graphe"
+              : "Impact"}
           </button>
         ))}
       </div>
@@ -398,6 +404,19 @@ export default function ProjectPage({ params }: Props) {
               </Button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Impact tab */}
+      {activeTab === "impact" && (
+        <div className="flex flex-col gap-4">
+          <ConflictsList
+            conflicts={conflicts}
+            loading={conflictsLoading}
+            onDetect={() => detectConflicts()}
+            onResolve={(id) => updateConflict(id, "resolved")}
+          />
+          <ImpactView projectId={id} requirements={requirements} />
         </div>
       )}
 

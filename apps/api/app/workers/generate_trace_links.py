@@ -14,6 +14,7 @@ from app.models.analysis_job import AnalysisJob
 from app.models.code_file import CodeFile
 from app.models.requirement import Requirement
 from app.models.trace_link import TraceLink
+from app.services.conflict_service import detect_conflicts
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,11 @@ async def _generate_trace_links(job_id: uuid.UUID, project_id: uuid.UUID) -> Non
 
             await session.commit()
 
+            job.progress = 97
+            await session.commit()
+
+            conflicts_count = await detect_conflicts(session, project_id)
+
             job.status = "completed"
             job.progress = 100
             job.completed_at = datetime.utcnow()
@@ -198,6 +204,7 @@ async def _generate_trace_links(job_id: uuid.UUID, project_id: uuid.UUID) -> Non
                 "links_created": links_created,
                 "requirements_processed": len(reqs),
                 "files_indexed": len(files_with_emb),
+                "conflicts_detected": conflicts_count,
             }
             await session.commit()
 

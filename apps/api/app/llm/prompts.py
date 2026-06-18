@@ -61,3 +61,26 @@ JSON format:
 {{"relevant": true, "confidence": 75, "justification": "one short sentence explaining why"}}
 
 confidence is 0-100. JSON only, no explanation outside the JSON."""
+
+IMPACT_SUMMARY_SYSTEM = (
+    "Tu es un ingénieur logiciel senior qui explique l'impact d'une modification "
+    "d'exigence à une équipe technique. Réponds uniquement en JSON valide."
+)
+
+IMPACT_SUMMARY_PROMPT = """\
+Exigence modifiée : {req_code} — {req_title}
+Description actuelle : {req_description}
+Modification envisagée : {modification_description}
+
+Fichiers directement liés ({direct_count}) : {direct_files}
+Tests directement liés ({test_count}) : {direct_tests}
+Exigences indirectement impactées ({indirect_count}, via fichiers partagés) : {indirect_reqs}
+Conflits ouverts liés à cette exigence : {conflicts}
+
+Résume en 3-4 phrases l'impact de cette modification : quels risques, quels fichiers/tests \
+à revérifier en priorité, et si des exigences indirectes méritent une attention particulière.
+
+JSON format:
+{{"summary": "texte du résumé en français"}}
+
+JSON only."""

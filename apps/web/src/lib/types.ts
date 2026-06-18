@@ -208,5 +208,42 @@ export interface DetectedConflict {
   severity: ConflictSeverity
   title: string
   description: string | null
+  requirement_ids: string[] | null
   status: string
+  created_at: string
+  resolved_at: string | null
+}
+
+// ── Impact analysis ─────────────────────────────────────────────────────────────
+
+export interface ImpactFile {
+  path: string
+  language: string | null
+  summary?: string | null
+}
+
+export interface ImpactIndirectRequirement {
+  code: string
+  title: string
+}
+
+export interface ImpactConflict {
+  rule_id: string | null
+  title: string
+  description: string | null
+}
+
+export interface ImpactReport {
+  requirement: {
+    id: string
+    code: string
+    title: string
+    description: string | null
+  }
+  modification_description: string
+  summary: string | null
+  direct_files: ImpactFile[]
+  direct_tests: ImpactFile[]
+  indirect_requirements: ImpactIndirectRequirement[]
+  conflicts: ImpactConflict[]
 }
