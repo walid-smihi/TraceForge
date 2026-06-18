@@ -61,7 +61,7 @@ async def generate_trace_links(
         "app.workers.generate_trace_links.run_generate_trace_links",
         str(job.id),
         str(project_id),
-        job_timeout=300,
+        job_timeout=1800,
     )
 
     return job

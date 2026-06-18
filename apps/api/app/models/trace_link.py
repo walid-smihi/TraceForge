@@ -25,6 +25,7 @@ class TraceLink(Base):
     link_type: Mapped[str] = mapped_column(String(30), server_default="implements")
     confidence_score: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(20), server_default="suggested")
+    justification: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     validation_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_manual: Mapped[bool] = mapped_column(Boolean, server_default="false")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

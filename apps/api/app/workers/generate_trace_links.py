@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import math
 import uuid
@@ -7,6 +8,7 @@ from datetime import datetime
 from sqlalchemy import delete, select
 
 from app.database import async_session_factory
+from app.llm.prompts import JUDGE_LINK_PROMPT, JUDGE_LINK_SYSTEM
 from app.llm.provider_factory import get_provider
 from app.models.analysis_job import AnalysisJob
 from app.models.code_file import CodeFile
@@ -15,8 +17,10 @@ from app.models.trace_link import TraceLink
 
 logger = logging.getLogger(__name__)
 
+CANDIDATE_K = 8
 TOP_K = 5
 MIN_SCORE = 0.40
+JUDGE_TIMEOUT = 45.0
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
@@ -26,6 +30,27 @@ def _cosine(a: list[float], b: list[float]) -> float:
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+async def _judge_link(llm, req: Requirement, f: CodeFile) -> dict | None:
+    prompt = JUDGE_LINK_PROMPT.format(
+        req_title=req.title,
+        req_description=req.description or "",
+        file_path=f.path,
+        file_summary=f.summary or "",
+    )
+    try:
+        response = await asyncio.wait_for(
+            llm.complete(prompt, system=JUDGE_LINK_SYSTEM),
+            timeout=JUDGE_TIMEOUT,
+        )
+        raw = response.content.strip()
+        if raw and not raw.endswith("}"):
+            raw = raw.rsplit(",", 1)[0] + "}"
+        return json.loads(raw)
+    except (asyncio.TimeoutError, json.JSONDecodeError, Exception) as e:
+        logger.warning("Link judge failed for req=%s file=%s: %s", req.code, f.path, e)
+        return None
 
 
 def run_generate_trace_links(job_id: str, project_id: str) -> None:
@@ -131,8 +156,24 @@ async def _generate_trace_links(job_id: uuid.UUID, project_id: uuid.UUID) -> Non
                         scores.append((sim, f))
 
                 scores.sort(key=lambda x: x[0], reverse=True)
+                candidates = scores[:CANDIDATE_K]
 
-                for score, f in scores[:TOP_K]:
+                confirmed: list[tuple[float, CodeFile, str | None]] = []
+
+                if llm_ok:
+                    for sim, f in candidates:
+                        verdict = await _judge_link(llm, req, f)
+                        if verdict and verdict.get("relevant"):
+                            confidence = verdict.get("confidence", round(sim * 100))
+                            score = max(0.0, min(1.0, float(confidence) / 100.0))
+                            confirmed.append((score, f, verdict.get("justification")))
+                else:
+                    # LLM unavailable — fall back to pure cosine similarity
+                    confirmed = [(sim, f, None) for sim, f in candidates]
+
+                confirmed.sort(key=lambda x: x[0], reverse=True)
+
+                for score, f, justification in confirmed[:TOP_K]:
                     link = TraceLink(
                         project_id=project_id,
                         source_type="requirement",
@@ -142,6 +183,7 @@ async def _generate_trace_links(job_id: uuid.UUID, project_id: uuid.UUID) -> Non
                         link_type="implements",
                         confidence_score=round(float(score), 2),
                         status="suggested",
+                        justification=justification,
                         is_manual=False,
                     )
                     session.add(link)

@@ -97,6 +97,7 @@ export interface TraceLink {
   link_type: string
   confidence_score: number | null
   status: TraceLinkStatus
+  justification: string | null
   is_manual: boolean
   created_at: string
   requirement_code: string | null

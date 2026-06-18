@@ -39,3 +39,25 @@ Rules:
 - detect the correct type (security, performance, etc.) from the content
 - mark is_ambiguous=true if the requirement uses vague words without measurable criteria
 Return max 10 requirements. JSON only, no explanation."""
+
+JUDGE_LINK_SYSTEM = (
+    "You are a software requirements traceability expert. You judge whether a code file "
+    "genuinely implements or directly relates to a given requirement, based on actual "
+    "functional relationship — not just keyword overlap. Respond with valid JSON only."
+)
+
+JUDGE_LINK_PROMPT = """\
+Requirement:
+Title: {req_title}
+Description: {req_description}
+
+Code file:
+Path: {file_path}
+Summary: {file_summary}
+
+Does this code file genuinely implement or directly relate to this requirement?
+
+JSON format:
+{{"relevant": true, "confidence": 75, "justification": "one short sentence explaining why"}}
+
+confidence is 0-100. JSON only, no explanation outside the JSON."""

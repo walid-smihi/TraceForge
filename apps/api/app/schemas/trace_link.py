@@ -15,6 +15,7 @@ class TraceLinkResponse(BaseModel):
     link_type: str
     confidence_score: Optional[float] = None
     status: str
+    justification: Optional[str] = None
     is_manual: bool
     created_at: datetime
     requirement_code: Optional[str] = None

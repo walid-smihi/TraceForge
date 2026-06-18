@@ -149,7 +149,9 @@ export function TraceLinksView({
                           )}
                           {statusBadge(link.status)}
                         </div>
-                        {link.file_summary && (
+                        {link.justification ? (
+                          <p className="text-xs text-muted-foreground line-clamp-2 italic">{link.justification}</p>
+                        ) : link.file_summary && (
                           <p className="text-xs text-muted-foreground line-clamp-2">{link.file_summary}</p>
                         )}
                       </div>
