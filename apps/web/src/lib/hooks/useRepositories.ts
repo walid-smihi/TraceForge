@@ -23,11 +23,15 @@ export function useRepositories(projectId: string) {
   }, [refetch])
 
   const addRepository = useCallback(
-    async (name: string, localPath: string): Promise<AnalysisJob> => {
-      const job = await api.post<AnalysisJob>(
-        `/api/v1/projects/${projectId}/repositories`,
-        { name, local_path: localPath }
-      )
+    async (
+      name: string,
+      source: { localPath?: string; githubUrl?: string }
+    ): Promise<AnalysisJob> => {
+      const job = await api.post<AnalysisJob>(`/api/v1/projects/${projectId}/repositories`, {
+        name,
+        local_path: source.localPath,
+        github_url: source.githubUrl,
+      })
       await refetch()
       return job
     },

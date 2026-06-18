@@ -61,6 +61,7 @@ export interface Repository {
   project_id: string
   name: string
   source_type: string
+  source_url: string | null
   local_path: string | null
   status: RepositoryStatus
   file_count: number

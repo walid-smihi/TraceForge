@@ -2,6 +2,8 @@ import asyncio
 import hashlib
 import json
 import logging
+import shutil
+import subprocess
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -13,8 +15,29 @@ from app.llm.prompts import SUMMARIZE_FILE_PROMPT, SUMMARIZE_FILE_SYSTEM
 from app.llm.provider_factory import get_provider
 from app.models.analysis_job import AnalysisJob
 from app.models.code_file import CodeFile, CodeRepository
+from config import settings
 
 logger = logging.getLogger(__name__)
+
+CLONE_TIMEOUT = 120
+
+
+def _clone_github_repo(url: str, project_id: uuid.UUID, repo_id: uuid.UUID) -> Path:
+    dest = Path(settings.STORAGE_PATH) / str(project_id) / "repos" / str(repo_id)
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        ["git", "clone", "--depth", "1", url, str(dest)],
+        capture_output=True,
+        text=True,
+        timeout=CLONE_TIMEOUT,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"git clone failed for {url}: {result.stderr.strip()}")
+    return dest
+
 
 LANGUAGE_MAP = {
     "ts": "TypeScript",
@@ -149,9 +172,14 @@ async def _scan_repository(job_id: uuid.UUID, repo_id: uuid.UUID, project_id: uu
         await session.commit()
 
         try:
-            root = Path(repo.local_path)
-            if not root.exists() or not root.is_dir():
-                raise ValueError(f"Path does not exist or is not a directory: {repo.local_path}")
+            if repo.source_type == "github":
+                root = _clone_github_repo(repo.source_url, project_id, repo_id)
+            else:
+                root = Path(repo.local_path)
+                if not root.exists() or not root.is_dir():
+                    raise ValueError(
+                        f"Path does not exist or is not a directory: {repo.local_path}"
+                    )
 
             job.progress = 5
             await session.commit()

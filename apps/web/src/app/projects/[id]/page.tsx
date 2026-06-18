@@ -109,8 +109,8 @@ export default function ProjectPage({ params }: Props) {
     setEditingReq(null)
   }
 
-  const handleAddRepo = async (name: string, localPath: string) => {
-    const job = await addRepository(name, localPath)
+  const handleAddRepo = async (name: string, source: { localPath?: string; githubUrl?: string }) => {
+    const job = await addRepository(name, source)
     setScanJobId(job.id)
   }
 
@@ -334,7 +334,9 @@ export default function ProjectPage({ params }: Props) {
                       </Button>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground font-mono">{repo.local_path}</p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {repo.source_type === "github" ? repo.source_url : repo.local_path}
+                  </p>
                   {repo.status === "scanned" && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {repo.file_count} fichiers · {repo.test_count} tests
