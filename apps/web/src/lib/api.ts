@@ -1,9 +1,25 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
+// In the desktop build, the page loads and fires its first fetches before
+// the bundled backend sidecar has finished starting up — those calls fail
+// at the network level (not an HTTP error response), so retry a few times
+// before giving up rather than leaving the UI stuck on a stale error.
+async function fetchWithRetry(url: string, init: RequestInit, retries = 5): Promise<Response> {
+  try {
+    return await fetch(url, init)
+  } catch (e) {
+    if (retries <= 0) throw e
+    await new Promise((r) => setTimeout(r, 400))
+    return fetchWithRetry(url, init, retries - 1)
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  // Only set Content-Type when there's actually a body — sending it on
+  // bodyless GET/DELETE requests forces a CORS preflight for no reason.
+  const res = await fetchWithRetry(`${API_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers },
   })
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }))
