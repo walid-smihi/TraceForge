@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { DocumentList } from "@/components/documents/DocumentList"
 import { DocumentUpload } from "@/components/documents/DocumentUpload"
 import { JobProgress } from "@/components/jobs/JobProgress"
@@ -26,14 +27,33 @@ import { useRequirements } from "@/lib/hooks/useRequirements"
 import { useTraceLinks } from "@/lib/hooks/useTraceLinks"
 import type { AnalysisJob, CodeFile, Document, Project, Repository, Requirement } from "@/lib/types"
 
-interface Props {
-  params: { id: string }
-}
-
 type Tab = "documents" | "requirements" | "code" | "liens" | "graphe" | "impact"
 
-export default function ProjectPage({ params }: Props) {
-  const { id } = params
+export default function ProjectPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProjectPageContent />
+    </Suspense>
+  )
+}
+
+function ProjectPageContent() {
+  const searchParams = useSearchParams()
+  const id = searchParams.get("id")
+
+  if (!id) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-8 text-center">
+        <p className="text-destructive">Aucun projet sélectionné</p>
+        <Link href="/" className="text-sm text-muted-foreground underline mt-2 inline-block">← Projets</Link>
+      </div>
+    )
+  }
+
+  return <ProjectView id={id} />
+}
+
+function ProjectView({ id }: { id: string }) {
   const [project, setProject] = useState<Project | null>(null)
   const [projectError, setProjectError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)

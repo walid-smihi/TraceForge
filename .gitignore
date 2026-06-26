@@ -14,9 +14,12 @@ venv/
 
 # Build outputs
 .next/
+out/
 dist/
 build/
 *.egg-info/
+next-env.d.ts
+*.tsbuildinfo
 
 # Storage (user data, not committed)
 storage/

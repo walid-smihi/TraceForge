@@ -21,7 +21,7 @@ export function ProjectCard({ project, onDelete }: Props) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1 min-w-0">
           <Link
-            href={`/projects/${project.id}`}
+            href={`/projects?id=${project.id}`}
             className="font-semibold text-foreground hover:underline truncate"
           >
             {project.name}
