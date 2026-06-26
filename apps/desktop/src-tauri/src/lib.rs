@@ -52,6 +52,10 @@ pub fn run() {
                     "CORS_ORIGINS",
                     "tauri://localhost,https://tauri.localhost,http://tauri.localhost",
                 )
+                // The backend's default (http://ollama:11434) is a Docker
+                // Compose service hostname that doesn't resolve here — outside
+                // a container, the user's local Ollama is just on localhost.
+                .env("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
                 .spawn()?;
 
             tauri::async_runtime::spawn(async move {
