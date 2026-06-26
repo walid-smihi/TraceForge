@@ -10,7 +10,7 @@ interface Props {
   conflicts: DetectedConflict[]
   loading: boolean
   error?: string | null
-  onDetect: () => Promise<unknown>
+  onDetect: () => Promise<DetectedConflict[]>
   onResolve: (id: string) => Promise<unknown>
   onRetry?: () => void
 }
@@ -23,14 +23,26 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export function ConflictsList({ conflicts, loading, error, onDetect, onResolve, onRetry }: Props) {
   const [actionError, setActionError] = useState<string | null>(null)
+  const [detecting, setDetecting] = useState(false)
+  const [lastDetectMessage, setLastDetectMessage] = useState<string | null>(null)
   const open = conflicts.filter((c) => c.status === "open")
 
   const handleDetect = async () => {
     setActionError(null)
+    setLastDetectMessage(null)
+    setDetecting(true)
     try {
-      await onDetect()
+      const result = await onDetect()
+      const openCount = result.filter((c) => c.status === "open").length
+      setLastDetectMessage(
+        openCount > 0
+          ? `Détection terminée — ${openCount} conflit${openCount !== 1 ? "s" : ""} ouvert${openCount !== 1 ? "s" : ""}.`
+          : "Détection terminée — aucun conflit trouvé."
+      )
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "La détection a échoué")
+    } finally {
+      setDetecting(false)
     }
   }
 
@@ -49,12 +61,15 @@ export function ConflictsList({ conflicts, loading, error, onDetect, onResolve, 
         <p className="text-sm font-medium">
           Conflits détectés {open.length > 0 && <span className="text-red-600">({open.length} ouverts)</span>}
         </p>
-        <Button size="sm" variant="secondary" onClick={handleDetect} disabled={loading}>
-          {loading ? "Détection…" : "Relancer la détection"}
+        <Button size="sm" variant="secondary" onClick={handleDetect} disabled={loading || detecting}>
+          {detecting ? "Détection…" : "Relancer la détection"}
         </Button>
       </div>
 
       {actionError && <ErrorBanner message={actionError} />}
+      {lastDetectMessage && !actionError && (
+        <p className="text-xs text-muted-foreground">{lastDetectMessage}</p>
+      )}
 
       {error ? (
         <ErrorBanner message={error} onRetry={onRetry} />
