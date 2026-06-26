@@ -24,7 +24,7 @@ source "$VENV_DIR/bin/activate"
 pip install -q --upgrade pip
 pip install -q -r requirements.txt pyinstaller
 
-pyinstaller --onefile --name traceforge-backend --noconfirm \
+pyinstaller --onefile --name traceforge-backend --noconfirm --clean \
   --collect-all pymupdf \
   --collect-all fastapi \
   --hidden-import uvicorn.logging \
