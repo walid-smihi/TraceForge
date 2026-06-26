@@ -50,7 +50,7 @@ pub fn run() {
                 )
                 .env(
                     "CORS_ORIGINS",
-                    "tauri://localhost,https://tauri.localhost",
+                    "tauri://localhost,https://tauri.localhost,http://tauri.localhost",
                 )
                 .spawn()?;
 
