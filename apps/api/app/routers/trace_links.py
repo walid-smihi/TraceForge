@@ -1,8 +1,6 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from redis import Redis
-from rq import Queue
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,16 +12,13 @@ from app.models.trace_link import TraceLink
 from app.schemas.job import JobResponse
 from app.schemas.trace_link import TraceLinkResponse, TraceLinkUpdate
 from app.services import job_service
+from app.services.background import run_in_background
 from app.services.project_service import get_project
-from config import settings
+from app.workers.generate_trace_links import _generate_trace_links
 
 router = APIRouter(prefix="/projects/{project_id}/trace-links", tags=["trace-links"])
 
 _VALID_STATUSES = {"suggested", "validated", "rejected", "needs_review"}
-
-
-def _get_queue() -> Queue:
-    return Queue("traceforge-jobs", connection=Redis.from_url(settings.REDIS_URL))
 
 
 async def _enrich(session: AsyncSession, link: TraceLink) -> TraceLinkResponse:
@@ -58,12 +53,7 @@ async def generate_trace_links(
         input_data={},
     )
 
-    _get_queue().enqueue(
-        "app.workers.generate_trace_links.run_generate_trace_links",
-        str(job.id),
-        str(project_id),
-        job_timeout=1800,
-    )
+    run_in_background(str(job.id), _generate_trace_links(job.id, project_id))
 
     return job
 

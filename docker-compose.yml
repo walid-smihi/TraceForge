@@ -33,71 +33,10 @@ services:
       - /home:/home:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - traceforge-net
     restart: unless-stopped
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-  worker:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    volumes:
-      - ./apps/api:/app
-      - ./storage:/app/storage
-      - /home:/home:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - traceforge-net
-    restart: unless-stopped
-    command: rq worker --url ${REDIS_URL} traceforge-jobs
-
-  postgres:
-    image: pgvector/pgvector:pg16
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_DB: traceforge
-      POSTGRES_USER: traceforge
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traceforgedev}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U traceforge -d traceforge"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - traceforge-net
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - traceforge-net
-    restart: unless-stopped
 
   # Ollama is optional — only needed for local LLM inference.
   # Set LLM_PROVIDER=ollama in .env and start with: docker compose --profile ollama up
@@ -116,8 +55,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
-  redis_data:
   ollama_data:
 
 networks:

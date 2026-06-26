@@ -1,16 +1,13 @@
 import os
+import tempfile
 
-import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-import app.models  # noqa: F401 — register all models
-from app.database import Base, get_session
-from main import app
-
-TEST_DB_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://traceforge:traceforgedev@localhost:5433/traceforge_test"
-)
+# A real file (not :memory:) is required: worker code under test opens its
+# own session via app.database's module-level engine — only a shared file on
+# disk lets that engine and this module's test_engine see the same data.
+# This must be set before app.database (and anything importing it) loads,
+# since config.settings reads DATABASE_URL once at import time.
+_TEST_DB_PATH = os.path.join(tempfile.mkdtemp(prefix="traceforge-test-"), "test.db")
+TEST_DB_URL = os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{_TEST_DB_PATH}")
 
 if "test" not in TEST_DB_URL.rsplit("/", 1)[-1]:
     raise RuntimeError(
@@ -19,7 +16,30 @@ if "test" not in TEST_DB_URL.rsplit("/", 1)[-1]:
         "destroys data. Use a dedicated *_test database."
     )
 
+import pytest  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy import event  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+import app.models  # noqa: E402,F401 — register all models
+from app.database import Base, get_session  # noqa: E402
+from main import app  # noqa: E402
+
 test_engine = create_async_engine(TEST_DB_URL, echo=False)
+
+if test_engine.url.get_backend_name() == "sqlite":
+
+    @event.listens_for(test_engine.sync_engine, "connect")
+    def _enable_test_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 test_session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
 
 

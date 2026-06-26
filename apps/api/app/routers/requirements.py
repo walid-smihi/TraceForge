@@ -2,22 +2,17 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from redis import Redis
-from rq import Queue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.schemas.job import JobResponse
 from app.schemas.requirement import RequirementCreate, RequirementResponse, RequirementUpdate
 from app.services import job_service, requirement_service
+from app.services.background import run_in_background
 from app.services.project_service import get_project
-from config import settings
+from app.workers.extract_requirements import _extract_requirements
 
 router = APIRouter(prefix="/projects/{project_id}/requirements", tags=["requirements"])
-
-
-def _get_queue() -> Queue:
-    return Queue("traceforge-jobs", connection=Redis.from_url(settings.REDIS_URL))
 
 
 @router.get("", response_model=list[RequirementResponse])
@@ -66,13 +61,7 @@ async def extract_requirements(
         job_type="extract_requirements",
         input_data={"document_id": str(document_id)},
     )
-    _get_queue().enqueue(
-        "app.workers.extract_requirements.run_extract_requirements",
-        str(job.id),
-        str(document_id),
-        str(project_id),
-        job_timeout=600,
-    )
+    run_in_background(str(job.id), _extract_requirements(job.id, document_id, project_id))
     return job
 
 

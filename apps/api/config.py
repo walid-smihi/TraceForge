@@ -4,11 +4,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://traceforge:traceforgedev@postgres:5432/traceforge"
-
-    # Redis
-    REDIS_URL: str = "redis://redis:6379/0"
+    # Database — a single SQLite file under STORAGE_PATH. No external DB
+    # service needed; this is what lets the backend run as a single process
+    # (Docker-free local dev, or bundled as a desktop app sidecar).
+    DATABASE_URL: str = "sqlite+aiosqlite:////app/storage/traceforge.db"
 
     # Storage
     STORAGE_PATH: str = "/app/storage"

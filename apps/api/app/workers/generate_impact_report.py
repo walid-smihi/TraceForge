@@ -15,19 +15,6 @@ logger = logging.getLogger(__name__)
 SUMMARY_TIMEOUT = 60.0
 
 
-def run_generate_impact_report(
-    job_id: str, project_id: str, requirement_id: str, modification_description: str
-) -> None:
-    asyncio.run(
-        _generate_impact_report(
-            uuid.UUID(job_id),
-            uuid.UUID(project_id),
-            uuid.UUID(requirement_id),
-            modification_description,
-        )
-    )
-
-
 async def _generate_impact_report(
     job_id: uuid.UUID,
     project_id: uuid.UUID,

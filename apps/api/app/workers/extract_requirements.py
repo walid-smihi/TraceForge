@@ -18,12 +18,6 @@ from app.services.requirement_service import create_requirement
 logger = logging.getLogger(__name__)
 
 
-def run_extract_requirements(job_id: str, document_id: str, project_id: str) -> None:
-    asyncio.run(
-        _extract_requirements(uuid.UUID(job_id), uuid.UUID(document_id), uuid.UUID(project_id))
-    )
-
-
 async def _extract_requirements(
     job_id: uuid.UUID, document_id: uuid.UUID, project_id: uuid.UUID
 ) -> None:

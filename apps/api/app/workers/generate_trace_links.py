@@ -54,10 +54,6 @@ async def _judge_link(llm, req: Requirement, f: CodeFile) -> dict | None:
         return None
 
 
-def run_generate_trace_links(job_id: str, project_id: str) -> None:
-    asyncio.run(_generate_trace_links(uuid.UUID(job_id), uuid.UUID(project_id)))
-
-
 async def _generate_trace_links(job_id: uuid.UUID, project_id: uuid.UUID) -> None:
     async with async_session_factory() as session:
         job = await session.get(AnalysisJob, job_id)

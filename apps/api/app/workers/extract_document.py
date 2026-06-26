@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from datetime import datetime
 
@@ -9,10 +8,6 @@ from app.llm.mock_provider import MockProvider
 from app.models.analysis_job import AnalysisJob
 from app.models.document import Document, DocumentChunk
 from app.parsers.text_extractor import chunk_text, extract_text
-
-
-def run_extract_document(job_id: str, document_id: str) -> None:
-    asyncio.run(_extract_document(uuid.UUID(job_id), uuid.UUID(document_id)))
 
 
 async def _extract_document(job_id: uuid.UUID, document_id: uuid.UUID) -> None:

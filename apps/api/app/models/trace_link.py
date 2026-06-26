@@ -2,8 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, ForeignKey, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID as PgUUID
+from sqlalchemy import Boolean, ForeignKey, Numeric, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -12,16 +11,14 @@ from app.database import Base
 class TraceLink(Base):
     __tablename__ = "trace_links"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
     source_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    source_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     target_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    target_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     link_type: Mapped[str] = mapped_column(String(30), server_default="implements")
     confidence_score: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(20), server_default="suggested")

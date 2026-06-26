@@ -3,23 +3,18 @@ from pathlib import Path
 
 import magic
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from redis import Redis
-from rq import Queue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.schemas.document import DocumentChunkResponse, DocumentResponse
 from app.schemas.job import JobResponse
 from app.services import document_service, job_service
+from app.services.background import run_in_background
 from app.services.project_service import get_project
+from app.workers.extract_document import _extract_document
 from config import settings
 
 router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"])
-
-
-def _get_queue() -> Queue:
-    redis = Redis.from_url(settings.REDIS_URL)
-    return Queue("traceforge-jobs", connection=redis)
 
 
 def _save_file(project_id: uuid.UUID, file: UploadFile, content: bytes) -> tuple[str, str]:
@@ -83,13 +78,7 @@ async def upload_document(
         input_data={"document_id": str(document.id)},
     )
 
-    queue = _get_queue()
-    queue.enqueue(
-        "app.workers.extract_document.run_extract_document",
-        str(job.id),
-        str(document.id),
-        job_timeout=120,
-    )
+    run_in_background(str(job.id), _extract_document(job.id, document.id))
 
     return job
 

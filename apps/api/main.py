@@ -1,6 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import app.models  # noqa: F401 — register all models on Base before create_all
+from app.database import init_db
 from app.routers import (
     conflicts,
     documents,
@@ -19,11 +23,19 @@ from app.routers import (
 )
 from config import settings
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await init_db()
+    yield
+
+
 app = FastAPI(
     title="TraceForge API",
     version="0.1.0",
     docs_url="/docs" if settings.APP_ENV != "production" else None,
     redoc_url=None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(

@@ -156,10 +156,6 @@ def _collect_files(root: Path) -> list[Path]:
     return files
 
 
-def run_scan_repository(job_id: str, repo_id: str, project_id: str) -> None:
-    asyncio.run(_scan_repository(uuid.UUID(job_id), uuid.UUID(repo_id), uuid.UUID(project_id)))
-
-
 async def _scan_repository(job_id: uuid.UUID, repo_id: uuid.UUID, project_id: uuid.UUID) -> None:
     async with async_session_factory() as session:
         job = await session.get(AnalysisJob, job_id)
@@ -173,7 +169,11 @@ async def _scan_repository(job_id: uuid.UUID, repo_id: uuid.UUID, project_id: uu
 
         try:
             if repo.source_type == "github":
-                root = _clone_github_repo(repo.source_url, project_id, repo_id)
+                # subprocess.run blocks — offload to a thread so it doesn't
+                # freeze the event loop now that this runs in-process.
+                root = await asyncio.to_thread(
+                    _clone_github_repo, repo.source_url, project_id, repo_id
+                )
             else:
                 root = Path(repo.local_path)
                 if not root.exists() or not root.is_dir():

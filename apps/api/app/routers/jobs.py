@@ -2,22 +2,15 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from redis import Redis
-from rq.command import send_stop_job_command
-from rq.job import Job
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.schemas.job import JobResponse
 from app.services import job_service
+from app.services.background import cancel_job as cancel_background_job
 from app.services.project_service import get_project
-from config import settings
 
 router = APIRouter(tags=["jobs"])
-
-
-def _redis() -> Redis:
-    return Redis.from_url(settings.REDIS_URL)
 
 
 @router.get("/projects/{project_id}/jobs", response_model=list[JobResponse])
@@ -46,15 +39,7 @@ async def cancel_job(job_id: uuid.UUID, session: AsyncSession = Depends(get_sess
             status_code=400, detail=f"Cannot cancel a job with status '{job.status}'"
         )
 
-    conn = _redis()
-    try:
-        rq_job = Job.fetch(str(job_id), connection=conn)
-        if rq_job.get_status().value in ("queued", "scheduled", "deferred"):
-            rq_job.cancel()
-        else:
-            send_stop_job_command(conn, str(job_id))
-    except Exception:
-        pass
+    cancel_background_job(str(job_id))
 
     job.status = "cancelled"
     job.completed_at = datetime.utcnow()

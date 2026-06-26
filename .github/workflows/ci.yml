@@ -48,31 +48,6 @@ jobs:
       run:
         working-directory: apps/api
 
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: traceforge_test
-          POSTGRES_USER: traceforge
-          POSTGRES_PASSWORD: testpassword
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -91,16 +66,9 @@ jobs:
       - name: Format check (ruff format)
         run: ruff format --check .
 
-      - name: Run migrations
-        run: alembic upgrade head
-        env:
-          DATABASE_URL: postgresql+asyncpg://traceforge:testpassword@localhost:5432/traceforge_test
-
       - name: Run tests
         run: pytest --cov=app --cov-report=xml --cov-fail-under=0
         env:
-          DATABASE_URL: postgresql+asyncpg://traceforge:testpassword@localhost:5432/traceforge_test
-          REDIS_URL: redis://localhost:6379/0
           LLM_PROVIDER: mock
           STORAGE_PATH: /tmp/traceforge-test-storage
           APP_ENV: test

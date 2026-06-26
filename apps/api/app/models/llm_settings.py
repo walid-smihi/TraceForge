@@ -2,8 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Text, func
-from sqlalchemy.dialects.postgresql import UUID as PgUUID
+from sqlalchemy import String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -12,9 +11,7 @@ from app.database import Base
 class LLMSettings(Base):
     __tablename__ = "llm_settings"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     provider: Mapped[str] = mapped_column(String(20), server_default="ollama", nullable=False)
     ollama_base_url: Mapped[Optional[str]] = mapped_column(
         Text, server_default="http://ollama:11434"

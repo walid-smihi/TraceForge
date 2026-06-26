@@ -1,22 +1,17 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from redis import Redis
-from rq import Queue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.schemas.job import JobResponse
 from app.schemas.repository import CodeFileResponse, RepositoryCreate, RepositoryResponse
 from app.services import job_service, repository_service
+from app.services.background import run_in_background
 from app.services.project_service import get_project
-from config import settings
+from app.workers.scan_repository import _scan_repository
 
 router = APIRouter(prefix="/projects/{project_id}/repositories", tags=["repositories"])
-
-
-def _get_queue() -> Queue:
-    return Queue("traceforge-jobs", connection=Redis.from_url(settings.REDIS_URL))
 
 
 @router.get("", response_model=list[RepositoryResponse])
@@ -49,13 +44,7 @@ async def add_repository(
         input_data={"repository_id": str(repo.id)},
     )
 
-    _get_queue().enqueue(
-        "app.workers.scan_repository.run_scan_repository",
-        str(job.id),
-        str(repo.id),
-        str(project_id),
-        job_timeout=600,
-    )
+    run_in_background(str(job.id), _scan_repository(job.id, repo.id, project_id))
 
     return job
 
