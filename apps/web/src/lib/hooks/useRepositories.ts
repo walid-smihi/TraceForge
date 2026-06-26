@@ -7,13 +7,15 @@ import type { AnalysisJob, CodeFile, Repository } from "@/lib/types"
 export function useRepositories(projectId: string) {
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const refetch = useCallback(async () => {
     try {
       const data = await api.get<Repository[]>(`/api/v1/projects/${projectId}/repositories`)
       setRepositories(data)
-    } catch {
-      // ignore
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load repositories")
     }
   }, [projectId])
 
@@ -53,5 +55,5 @@ export function useRepositories(projectId: string) {
     [projectId]
   )
 
-  return { repositories, loading, addRepository, deleteRepository, getFiles, refetch }
+  return { repositories, loading, error, addRepository, deleteRepository, getFiles, refetch }
 }

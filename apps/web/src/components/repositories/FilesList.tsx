@@ -71,8 +71,8 @@ export function FilesList({ repository, files }: Props) {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead className="bg-muted/50 border-b">
             <tr>
               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Fichier</th>

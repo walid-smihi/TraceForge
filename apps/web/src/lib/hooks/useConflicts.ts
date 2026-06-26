@@ -8,12 +8,16 @@ import type { DetectedConflict } from "@/lib/types"
 export function useConflicts(projectId: string) {
   const [conflicts, setConflicts] = useState<DetectedConflict[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const refetch = useCallback(async () => {
     setLoading(true)
     try {
       const data = await api.get<DetectedConflict[]>(`/api/v1/projects/${projectId}/conflicts`)
       setConflicts(data)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load conflicts")
     } finally {
       setLoading(false)
     }
@@ -29,6 +33,7 @@ export function useConflicts(projectId: string) {
       {}
     )
     setConflicts(data)
+    setError(null)
     return data
   }
 
@@ -44,5 +49,5 @@ export function useConflicts(projectId: string) {
     return updated
   }
 
-  return { conflicts, loading, detectConflicts, updateConflict, refetch }
+  return { conflicts, loading, error, detectConflicts, updateConflict, refetch }
 }

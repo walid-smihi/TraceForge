@@ -6,12 +6,16 @@ import type { AnalysisJob, TraceLink } from "@/lib/types"
 export function useTraceLinks(projectId: string) {
   const [links, setLinks] = useState<TraceLink[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const refetch = useCallback(async () => {
     setLoading(true)
     try {
       const data = await api.get<TraceLink[]>(`/api/v1/projects/${projectId}/trace-links`)
       setLinks(data)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load trace links")
     } finally {
       setLoading(false)
     }
@@ -44,5 +48,5 @@ export function useTraceLinks(projectId: string) {
     setLinks([])
   }
 
-  return { links, loading, generateLinks, updateLink, deleteLink, deleteAllLinks, refetch }
+  return { links, loading, error, generateLinks, updateLink, deleteLink, deleteAllLinks, refetch }
 }

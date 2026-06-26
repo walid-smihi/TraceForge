@@ -16,6 +16,7 @@ import { RequirementsTable } from "@/components/requirements/RequirementsTable"
 import { SearchBar } from "@/components/search/SearchBar"
 import { TraceLinksView } from "@/components/trace_links/TraceLinksView"
 import { Button } from "@/components/ui/button"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import { api } from "@/lib/api"
 import { useConflicts } from "@/lib/hooks/useConflicts"
 import { useDocuments } from "@/lib/hooks/useDocuments"
@@ -51,12 +52,12 @@ export default function ProjectPage({ params }: Props) {
   // Liens tab state
   const [linkJobId, setLinkJobId] = useState<string | null>(null)
 
-  const { documents, loading: docsLoading, uploadDocument, deleteDocument, refetch: refetchDocs } = useDocuments(id)
-  const { requirements, loading: reqsLoading, extractRequirements, createRequirement, updateRequirement, deleteRequirement, refetch: refetchReqs } = useRequirements(id)
-  const { repositories, loading: reposLoading, addRepository, deleteRepository, getFiles, refetch: refetchRepos } = useRepositories(id)
-  const { links, loading: linksLoading, generateLinks, updateLink, deleteLink, deleteAllLinks, refetch: refetchLinks } = useTraceLinks(id)
-  const { graph, metrics, loading: graphLoading, refetch: refetchGraph } = useGraph(id)
-  const { conflicts, loading: conflictsLoading, detectConflicts, updateConflict } = useConflicts(id)
+  const { documents, loading: docsLoading, error: docsError, uploadDocument, deleteDocument, refetch: refetchDocs } = useDocuments(id)
+  const { requirements, loading: reqsLoading, error: reqsError, extractRequirements, createRequirement, updateRequirement, deleteRequirement, refetch: refetchReqs } = useRequirements(id)
+  const { repositories, loading: reposLoading, error: reposError, addRepository, deleteRepository, getFiles, refetch: refetchRepos } = useRepositories(id)
+  const { links, loading: linksLoading, error: linksError, generateLinks, updateLink, deleteLink, deleteAllLinks, refetch: refetchLinks } = useTraceLinks(id)
+  const { graph, metrics, loading: graphLoading, error: graphError, refetch: refetchGraph } = useGraph(id)
+  const { conflicts, loading: conflictsLoading, error: conflictsError, detectConflicts, updateConflict, refetch: refetchConflicts } = useConflicts(id)
 
   useEffect(() => {
     api.get<Project>(`/api/v1/projects/${id}`)
@@ -144,8 +145,8 @@ export default function ProjectPage({ params }: Props) {
       {/* Header */}
       <div className="mb-6">
         <Link href="/" className="text-sm text-muted-foreground hover:underline">← Projets</Link>
-        <div className="mt-3 flex items-start justify-between">
-          <div>
+        <div className="mt-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">{project?.name ?? "…"}</h1>
             {project?.domain && (
               <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full mt-1 inline-block">{project.domain}</span>
@@ -154,8 +155,8 @@ export default function ProjectPage({ params }: Props) {
               <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
             )}
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
               <span>{documents.length} doc{documents.length !== 1 ? "s" : ""}</span>
               <span>{requirements.length} req{requirements.length !== 1 ? "s" : ""}</span>
               <span>{repositories.reduce((s, r) => s + r.file_count, 0)} fichiers</span>
@@ -166,12 +167,12 @@ export default function ProjectPage({ params }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b mb-6">
+      <div className="flex gap-1 border-b mb-6 overflow-x-auto">
         {(["documents", "requirements", "code", "liens", "graphe", "impact"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -200,6 +201,8 @@ export default function ProjectPage({ params }: Props) {
             <div className="flex justify-center py-8">
               <div className="h-6 w-6 animate-spin border-2 border-primary border-t-transparent rounded-full" />
             </div>
+          ) : docsError ? (
+            <ErrorBanner message={docsError} onRetry={refetchDocs} />
           ) : (
             <>
               <DocumentList
@@ -257,6 +260,8 @@ export default function ProjectPage({ params }: Props) {
             <div className="flex justify-center py-8">
               <div className="h-6 w-6 animate-spin border-2 border-primary border-t-transparent rounded-full" />
             </div>
+          ) : reqsError ? (
+            <ErrorBanner message={reqsError} onRetry={refetchReqs} />
           ) : (
             <RequirementsTable
               requirements={requirements}
@@ -294,6 +299,8 @@ export default function ProjectPage({ params }: Props) {
             <div className="flex justify-center py-8">
               <div className="h-6 w-6 animate-spin border-2 border-primary border-t-transparent rounded-full" />
             </div>
+          ) : reposError ? (
+            <ErrorBanner message={reposError} onRetry={refetchRepos} />
           ) : repositories.length === 0 ? (
             <div className="text-center py-12 border rounded-lg border-dashed">
               <p className="text-muted-foreground text-sm">Aucun dépôt connecté.</p>
@@ -372,19 +379,25 @@ export default function ProjectPage({ params }: Props) {
 
       {/* Liens tab */}
       {activeTab === "liens" && (
-        <TraceLinksView
-          projectId={id}
-          links={links}
-          loading={linksLoading}
-          linkJobId={linkJobId}
-          onGenerate={generateLinks}
-          onJobStart={(jobId) => setLinkJobId(jobId)}
-          onJobComplete={() => { setLinkJobId(null); refetchLinks() }}
-          onAccept={(linkId) => updateLink(linkId, "validated")}
-          onReject={(linkId) => updateLink(linkId, "rejected")}
-          onDelete={(linkId) => deleteLink(linkId)}
-          onDeleteAll={() => deleteAllLinks()}
-        />
+        <div className="flex flex-col gap-4">
+          {linksError ? (
+            <ErrorBanner message={linksError} onRetry={refetchLinks} />
+          ) : (
+            <TraceLinksView
+              projectId={id}
+              links={links}
+              loading={linksLoading}
+              linkJobId={linkJobId}
+              onGenerate={generateLinks}
+              onJobStart={(jobId) => setLinkJobId(jobId)}
+              onJobComplete={() => { setLinkJobId(null); refetchLinks() }}
+              onAccept={(linkId) => updateLink(linkId, "validated")}
+              onReject={(linkId) => updateLink(linkId, "rejected")}
+              onDelete={(linkId) => deleteLink(linkId)}
+              onDeleteAll={() => deleteAllLinks()}
+            />
+          )}
+        </div>
       )}
 
       {/* Graphe tab */}
@@ -394,6 +407,8 @@ export default function ProjectPage({ params }: Props) {
             <div className="flex justify-center py-8">
               <div className="h-6 w-6 animate-spin border-2 border-primary border-t-transparent rounded-full" />
             </div>
+          ) : graphError ? (
+            <ErrorBanner message={graphError} onRetry={refetchGraph} />
           ) : !graph || graph.nodes.length === 0 ? (
             <div className="text-center py-12 border rounded-lg border-dashed">
               <p className="text-muted-foreground text-sm">Aucune donnée à afficher.</p>
@@ -419,8 +434,10 @@ export default function ProjectPage({ params }: Props) {
           <ConflictsList
             conflicts={conflicts}
             loading={conflictsLoading}
-            onDetect={() => detectConflicts()}
+            error={conflictsError}
+            onDetect={detectConflicts}
             onResolve={(id) => updateConflict(id, "resolved")}
+            onRetry={refetchConflicts}
           />
           <ImpactView projectId={id} requirements={requirements} />
         </div>

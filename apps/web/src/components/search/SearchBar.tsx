@@ -37,7 +37,7 @@ export function SearchBar({ projectId }: Props) {
   }
 
   return (
-    <div className="relative w-72">
+    <div className="relative w-full sm:w-72">
       <form onSubmit={handleSubmit}>
         <input
           type="text"
