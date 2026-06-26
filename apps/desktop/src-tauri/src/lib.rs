@@ -1,4 +1,6 @@
+use std::net::TcpStream;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandChild;
@@ -76,6 +78,24 @@ pub fn run() {
                     }
                 });
             }
+
+            // The window starts hidden — show it only once the backend is
+            // actually accepting connections, otherwise the frontend's first
+            // fetch races the sidecar's startup and fails with a connection
+            // error.
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let deadline = std::time::Instant::now() + Duration::from_secs(30);
+                while std::time::Instant::now() < deadline {
+                    if TcpStream::connect(("127.0.0.1", BACKEND_PORT)).is_ok() {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(150)).await;
+                }
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                }
+            });
 
             Ok(())
         })

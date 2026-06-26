@@ -4,6 +4,7 @@ import { useState } from "react"
 import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog"
 import { ProjectCard } from "@/components/projects/ProjectCard"
 import { Button } from "@/components/ui/button"
+import { API_URL } from "@/lib/api"
 import { useProjects } from "@/lib/hooks/useProjects"
 
 export default function HomePage() {
@@ -22,7 +23,7 @@ export default function HomePage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <p className="text-destructive text-sm">{error}</p>
-        <p className="text-muted-foreground text-xs">Make sure the backend is running on port 8000</p>
+        <p className="text-muted-foreground text-xs">Make sure the backend is reachable at {API_URL}</p>
       </div>
     )
   }
