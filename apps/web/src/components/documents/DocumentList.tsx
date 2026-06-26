@@ -3,12 +3,13 @@
 import { useState } from "react"
 import { JobProgress } from "@/components/jobs/JobProgress"
 import { Button } from "@/components/ui/button"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import type { Document } from "@/lib/types"
 
 interface Props {
   documents: Document[]
   docJobMap: Record<string, string>
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<unknown>
   onJobComplete: () => void
 }
 
@@ -28,11 +29,15 @@ function formatSize(bytes: number | null): string {
 
 export function DocumentList({ documents, docJobMap, onDelete, onJobComplete }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleDelete = async (id: string) => {
     setDeletingId(id)
+    setError(null)
     try {
       await onDelete(id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Impossible de supprimer ce document")
     } finally {
       setDeletingId(null)
     }
@@ -48,6 +53,7 @@ export function DocumentList({ documents, docJobMap, onDelete, onJobComplete }: 
 
   return (
     <div className="flex flex-col gap-2">
+      {error && <ErrorBanner message={error} />}
       {documents.map((doc) => {
         const jobId = docJobMap[doc.id]
         const showProgress = jobId && (doc.status === "uploaded" || doc.status === "processing")

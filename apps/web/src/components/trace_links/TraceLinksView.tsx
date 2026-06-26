@@ -1,7 +1,10 @@
 "use client"
 
+import { useState } from "react"
+
 import { JobProgress } from "@/components/jobs/JobProgress"
 import { Button } from "@/components/ui/button"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import type { AnalysisJob, TraceLink } from "@/lib/types"
 
 interface Props {
@@ -12,10 +15,10 @@ interface Props {
   onGenerate: () => Promise<AnalysisJob>
   onJobStart: (jobId: string) => void
   onJobComplete: () => void
-  onAccept: (linkId: string) => void
-  onReject: (linkId: string) => void
-  onDelete: (linkId: string) => void
-  onDeleteAll: () => void
+  onAccept: (linkId: string) => Promise<unknown>
+  onReject: (linkId: string) => Promise<unknown>
+  onDelete: (linkId: string) => Promise<unknown>
+  onDeleteAll: () => Promise<unknown>
 }
 
 const LANG_COLORS: Record<string, string> = {
@@ -57,14 +60,34 @@ export function TraceLinksView({
   onDelete,
   onDeleteAll,
 }: Props) {
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [pendingId, setPendingId] = useState<string | null>(null)
+
+  const runAction = async (id: string | null, action: () => Promise<unknown>) => {
+    setActionError(null)
+    setPendingId(id)
+    try {
+      await action()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "L'action a échoué")
+    } finally {
+      setPendingId(null)
+    }
+  }
+
   const handleGenerate = async () => {
-    const job = await onGenerate()
-    onJobStart(job.id)
+    setActionError(null)
+    try {
+      const job = await onGenerate()
+      onJobStart(job.id)
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Impossible de lancer la génération")
+    }
   }
 
   const handleDeleteAll = () => {
     if (window.confirm(`Supprimer les ${links.length} liens de ce projet ? Cette action est irréversible.`)) {
-      onDeleteAll()
+      runAction(null, onDeleteAll)
     }
   }
 
@@ -113,6 +136,8 @@ export function TraceLinksView({
         </div>
       </div>
 
+      {actionError && <ErrorBanner message={actionError} />}
+
       {linkJobId && (
         <div className="border rounded-lg p-4 bg-blue-50">
           <p className="text-sm font-medium mb-2">Calcul des liens de traçabilité…</p>
@@ -149,7 +174,7 @@ export function TraceLinksView({
                     key={link.id}
                     className={`border rounded-md p-3 ${
                       link.status === "rejected" ? "opacity-50" : ""
-                    }`}
+                    } ${pendingId === link.id ? "opacity-60 pointer-events-none" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -188,13 +213,13 @@ export function TraceLinksView({
                           <>
                             <button
                               className="text-xs text-green-700 hover:text-green-900 font-medium"
-                              onClick={() => onAccept(link.id)}
+                              onClick={() => runAction(link.id, () => onAccept(link.id))}
                             >
                               ✓
                             </button>
                             <button
                               className="text-xs text-red-600 hover:text-red-800 font-medium"
-                              onClick={() => onReject(link.id)}
+                              onClick={() => runAction(link.id, () => onReject(link.id))}
                             >
                               ✗
                             </button>
@@ -203,7 +228,7 @@ export function TraceLinksView({
                         {(link.status === "validated" || link.status === "rejected") && (
                           <button
                             className="text-xs text-muted-foreground hover:text-foreground"
-                            onClick={() => onDelete(link.id)}
+                            onClick={() => runAction(link.id, () => onDelete(link.id))}
                             title="Supprimer"
                           >
                             ×

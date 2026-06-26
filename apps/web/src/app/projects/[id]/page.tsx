@@ -36,6 +36,7 @@ export default function ProjectPage({ params }: Props) {
   const { id } = params
   const [project, setProject] = useState<Project | null>(null)
   const [projectError, setProjectError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>("documents")
   const [docJobMap, setDocJobMap] = useState<Record<string, string>>({})
   const [extractJobId, setExtractJobId] = useState<string | null>(null)
@@ -95,10 +96,25 @@ export default function ProjectPage({ params }: Props) {
 
   const processedDocs = documents.filter((d: Document) => d.status === "processed")
 
+  // Generic wrapper for one-off action buttons (delete, etc.) that don't
+  // manage their own error state — surfaces failures instead of failing silently.
+  const runAction = async (action: () => Promise<unknown>) => {
+    setActionError(null)
+    try {
+      await action()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "L'action a échoué")
+    }
+  }
+
   const handleExtract = async (doc: Document) => {
-    const job = await extractRequirements(doc.id)
-    setExtractJobId(job.id)
-    setActiveTab("requirements")
+    try {
+      const job = await extractRequirements(doc.id)
+      setExtractJobId(job.id)
+      setActiveTab("requirements")
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Impossible de lancer l'extraction")
+    }
   }
 
   const handleSaveReq = async (data: { title: string; description?: string | undefined; req_type: string; priority: string }) => {
@@ -123,9 +139,12 @@ export default function ProjectPage({ params }: Props) {
   const handleSelectRepo = async (repo: Repository) => {
     setSelectedRepo(repo)
     setFilesLoading(true)
+    setActionError(null)
     try {
       const files = await getFiles(repo.id)
       setRepoFiles(files)
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Impossible de charger les fichiers")
     } finally {
       setFilesLoading(false)
     }
@@ -192,6 +211,12 @@ export default function ProjectPage({ params }: Props) {
           </button>
         ))}
       </div>
+
+      {actionError && (
+        <div className="mb-4">
+          <ErrorBanner message={actionError} />
+        </div>
+      )}
 
       {/* Documents tab */}
       {activeTab === "documents" && (
@@ -266,7 +291,7 @@ export default function ProjectPage({ params }: Props) {
             <RequirementsTable
               requirements={requirements}
               onEdit={(req) => { setEditingReq(req); setShowReqForm(true) }}
-              onDelete={deleteRequirement}
+              onDelete={(reqId) => runAction(() => deleteRequirement(reqId))}
             />
           )}
         </div>
@@ -335,7 +360,7 @@ export default function ProjectPage({ params }: Props) {
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => deleteRepository(repo.id)}
+                        onClick={() => runAction(() => deleteRepository(repo.id))}
                       >
                         Supprimer
                       </Button>
