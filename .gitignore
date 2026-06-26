@@ -49,3 +49,8 @@ coverage/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Desktop (Tauri + PyInstaller sidecar build artifacts)
+apps/desktop/src-tauri/binaries/
+apps/api/*.spec
+apps/api/.sidecar-venv/

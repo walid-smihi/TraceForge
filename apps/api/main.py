@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401 — register all models on Base before create_all
-from app.database import init_db
+from app.database import engine, init_db
 from app.routers import (
     conflicts,
     documents,
@@ -26,6 +27,9 @@ from config import settings
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    Path(settings.STORAGE_PATH).mkdir(parents=True, exist_ok=True)
+    if engine.url.get_backend_name() == "sqlite" and engine.url.database:
+        Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
     await init_db()
     yield
 
