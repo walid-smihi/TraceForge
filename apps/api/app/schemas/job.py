@@ -11,6 +11,7 @@ class JobResponse(BaseModel):
     job_type: str
     status: str
     progress: int
+    input_data: Optional[Any]
     result_data: Optional[Any]
     error_message: Optional[str]
     created_at: datetime
