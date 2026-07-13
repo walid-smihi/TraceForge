@@ -28,12 +28,18 @@ def _clone_github_repo(url: str, project_id: uuid.UUID, repo_id: uuid.UUID) -> P
         shutil.rmtree(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    result = subprocess.run(
-        ["git", "clone", "--depth", "1", url, str(dest)],
-        capture_output=True,
-        text=True,
-        timeout=CLONE_TIMEOUT,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", url, str(dest)],
+            capture_output=True,
+            text=True,
+            timeout=CLONE_TIMEOUT,
+        )
+    except FileNotFoundError:
+        raise ValueError(
+            "La commande `git` est introuvable. "
+            "Installez Git (https://git-scm.com) pour utiliser l'import de dépôts."
+        )
     if result.returncode != 0:
         raise ValueError(f"git clone failed for {url}: {result.stderr.strip()}")
     return dest

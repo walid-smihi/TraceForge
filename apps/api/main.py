@@ -67,3 +67,17 @@ app.include_router(settings_router.router, prefix="/api/v1")
 @app.get("/health", tags=["system"])
 async def health() -> dict:
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/health/llm", tags=["system"])
+async def health_llm() -> dict:
+    from app.llm.provider_factory import get_provider
+    from config import settings
+
+    llm = get_provider()
+    available = await llm.health_check()
+    return {
+        "available": available,
+        "provider": settings.LLM_PROVIDER,
+        "base_url": getattr(settings, "OLLAMA_BASE_URL", None),
+    }

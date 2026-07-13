@@ -141,7 +141,7 @@ async def test_extract_requirements_skips_chunk_on_bad_json(
 
 
 @pytest.mark.asyncio
-async def test_extract_requirements_falls_back_to_mock_when_llm_unavailable(
+async def test_extract_requirements_fails_when_llm_unavailable(
     monkeypatch, session: AsyncSession, project_id: str, document_with_chunk
 ):
     pid = uuid.UUID(project_id)
@@ -156,6 +156,5 @@ async def test_extract_requirements_falls_back_to_mock_when_llm_unavailable(
     await _extract_requirements(job.id, document_with_chunk.id, pid)
 
     await session.refresh(job)
-    assert job.status == "completed"
-    # MockProvider returns its own fixed set of requirements regardless of input.
-    assert job.result_data["requirements_created"] > 0
+    assert job.status == "failed"
+    assert "inaccessible" in job.error_message

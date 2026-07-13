@@ -49,10 +49,17 @@ async def _extract_requirements(
             llm = get_provider()
             available = await llm.health_check()
             if not available:
-                logger.warning("LLM unavailable, falling back to MockProvider")
-                from app.llm.mock_provider import MockProvider
+                from config import settings
 
-                llm = MockProvider()
+                job.status = "failed"
+                job.error_message = (
+                    f"Le modèle de langage est inaccessible "
+                    f"({settings.LLM_PROVIDER} @ {getattr(settings, 'OLLAMA_BASE_URL', 'N/A')}). "
+                    "Vérifiez qu'Ollama est démarré, puis relancez l'extraction."
+                )
+                job.completed_at = datetime.utcnow()
+                await session.commit()
+                return
 
             existing = await session.execute(
                 select(Requirement).where(Requirement.project_id == project_id)

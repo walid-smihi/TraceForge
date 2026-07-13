@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.database import async_session_factory
-from app.llm.mock_provider import MockProvider
+from app.llm.provider_factory import get_provider
 from app.models.analysis_job import AnalysisJob
 from app.models.document import Document, DocumentChunk
 from app.parsers.text_extractor import chunk_text, extract_text
@@ -50,11 +50,17 @@ async def _extract_document(job_id: uuid.UUID, document_id: uuid.UUID) -> None:
             job.progress = 80
             await session.commit()
 
-            llm = MockProvider()
-            req_result = await llm.complete(
-                prompt=f"Extract requirements from:\n\n{text[:3000]}",
-                system="You are a requirements analyst.",
-            )
+            preview = None
+            try:
+                llm = get_provider()
+                if await llm.health_check():
+                    req_result = await llm.complete(
+                        prompt=f"Extract requirements from:\n\n{text[:3000]}",
+                        system="You are a requirements analyst. Return JSON only.",
+                    )
+                    preview = req_result.content
+            except Exception:
+                pass  # preview is non-critical, don't fail the document extraction
 
             document.status = "processed"
             job.status = "completed"
@@ -62,7 +68,7 @@ async def _extract_document(job_id: uuid.UUID, document_id: uuid.UUID) -> None:
             job.completed_at = datetime.utcnow()
             job.result_data = {
                 "chunks_count": len(raw_chunks),
-                "requirements_preview": req_result.content,
+                "requirements_preview": preview,
             }
             await session.commit()
 
